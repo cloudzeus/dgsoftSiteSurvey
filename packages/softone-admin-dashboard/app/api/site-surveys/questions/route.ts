@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { assertApiAccess } from "@/lib/permissions"
-import { MasterCategory, SoftwareType, WebCategory, DigitalToolType, IotTech } from "@prisma/client"
+import { SoftwareType, WebCategory, DigitalToolType, IotTech } from "@prisma/client"
 
 // Resolves optionsSource string → array of { id, label } from the matching master table.
 // Format: "<model>" or "<model>:<filter>"
@@ -41,7 +41,7 @@ async function resolveOptions(source: string): Promise<{ id: number; label: stri
 
     case "brand": {
       const rows = await db.brand.findMany({
-        where: filter ? { category: filter as MasterCategory } : undefined,
+        where: filter ? { categories: { array_contains: filter } } : undefined,
         orderBy: { name: "asc" },
       })
       return rows.map((r) => ({ id: r.id, label: r.name }))
@@ -97,5 +97,9 @@ export async function GET(req: Request) {
     }),
   )
 
-  return NextResponse.json(resolved)
+  // Deduplicate by id — guards against duplicate rows in the master table
+  const seen = new Set<number>()
+  const deduped = resolved.filter(q => !seen.has(q.id) && !!seen.add(q.id))
+
+  return NextResponse.json(deduped)
 }

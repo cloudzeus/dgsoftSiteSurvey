@@ -8,7 +8,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, Columns3, Check,
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
-  PlayCircle,
+  PlayCircle, FileBarChart2,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
@@ -17,6 +17,7 @@ import { useTablePrefs, PAGE_SIZES, type ColDef } from "@/hooks/use-table-prefs"
 import { deleteSiteSurvey, getCustomerBranches } from "@/app/actions/site-survey"
 import { SiteSurveyDialog, type SurveyUser, type SurveyCustomer, type SurveyCustomerOption, type SurveyBranch, type SiteSurveyRow } from "./site-survey-dialog"
 import { SurveyQuestionsWizard } from "./survey-questions-wizard"
+import { SiteSurveyReportModal } from "./site-survey-report-modal"
 import type { SurveySection, SurveyStatus } from "@/app/actions/site-survey"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -71,6 +72,14 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   web_ecommerce:    <Globe        className="size-3" />,
   compliance:       <ShieldCheck  className="size-3" />,
   iot_ai:           <Bot          className="size-3" />,
+}
+
+const SECTION_BADGE_STYLES: Record<string, string> = {
+  hardware_network: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  software:         "bg-violet-500/10 text-violet-400 border-violet-500/20",
+  web_ecommerce:    "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  compliance:       "bg-rose-500/10 text-rose-400 border-rose-500/20",
+  iot_ai:           "bg-teal-500/10 text-teal-400 border-teal-500/20",
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -136,6 +145,40 @@ function ExpandedRow({
   const [filesLoading, setFilesLoading] = useState(false)
   const [deletingId,   setDeletingId]   = useState<number | null>(null)
   const [wizardSection, setWizardSection] = useState<string | null>(null)
+  const [sectionStats, setSectionStats] = useState<Record<string, { answered: number; total: number }>>({})
+
+  async function loadSectionStats() {
+    try {
+      const [resultsRes, questionsRes] = await Promise.all([
+        fetch(`/api/site-surveys/${survey.id}/results`),
+        fetch(`/api/site-surveys/questions`),
+      ])
+      if (!resultsRes.ok || !questionsRes.ok) return
+      const { results } = await resultsRes.json() as { results: { answerValue: string | null; question: { section: string } }[] }
+      const questions   = await questionsRes.json() as { section: string }[]
+
+      const totals: Record<string, number> = {}
+      for (const q of questions) {
+        const k = q.section.toLowerCase()
+        totals[k] = (totals[k] ?? 0) + 1
+      }
+      const answered: Record<string, number> = {}
+      for (const r of results) {
+        if (r.answerValue !== null && r.answerValue !== "" && r.answerValue !== "[]") {
+          const k = r.question.section.toLowerCase()
+          answered[k] = (answered[k] ?? 0) + 1
+        }
+      }
+      const stats: Record<string, { answered: number; total: number }> = {}
+      for (const s of survey.sections) {
+        stats[s] = { answered: answered[s] ?? 0, total: totals[s] ?? 0 }
+      }
+      setSectionStats(stats)
+    } catch { /* silently ignore */ }
+  }
+
+  // Load section stats on mount so badges are ready before switching tabs
+  React.useEffect(() => { loadSectionStats() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function loadFiles() {
     setFilesLoading(true)
@@ -244,31 +287,60 @@ function ExpandedRow({
           <div className="space-y-2">
             {survey.sections.length === 0 ? (
               <p className="text-[12px] py-4" style={{ color: "var(--muted-foreground)" }}>No sections selected.</p>
-            ) : survey.sections.map(s => (
-              <button
-                key={s}
-                type="button"
-                onClick={e => { e.stopPropagation(); setWizardSection(s) }}
-                className="w-full flex items-center gap-3 rounded-xl border border-[var(--border)] px-4 py-3 bg-[var(--muted)]/10 hover:bg-indigo-500/5 hover:border-indigo-500/30 transition-colors group text-left"
-              >
-                <div className="size-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0 text-indigo-400">
-                  {SECTION_ICONS[s]}
-                </div>
-                <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
-                  {SECTION_LABELS[s] ?? s}
-                </p>
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <PlayCircle className="size-3.5" /> Fill out
-                </span>
-              </button>
-            ))}
+            ) : survey.sections.map(s => {
+              const stats    = sectionStats[s]
+              const hasStats = stats && stats.total > 0
+              const allDone  = hasStats && stats.answered === stats.total
+              const started  = hasStats && stats.answered > 0 && !allDone
+
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={e => { e.stopPropagation(); setWizardSection(s) }}
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors group text-left",
+                    allDone
+                      ? "border-emerald-500/30 bg-emerald-500/[3%] hover:bg-emerald-500/[5%]"
+                      : "border-[var(--border)] bg-[var(--muted)]/10 hover:bg-indigo-500/5 hover:border-indigo-500/30",
+                  )}
+                >
+                  <div className={cn(
+                    "size-7 rounded-lg border flex items-center justify-center shrink-0",
+                    allDone
+                      ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
+                      : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
+                  )}>
+                    {allDone ? <Check className="size-3.5" strokeWidth={3} /> : SECTION_ICONS[s]}
+                  </div>
+                  <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
+                    {SECTION_LABELS[s] ?? s}
+                  </p>
+                  {hasStats && (
+                    <span className={cn(
+                      "text-[10px] font-bold px-2 py-0.5 rounded-full border tabular-nums",
+                      allDone
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : started
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        : "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]",
+                    )}>
+                      {stats.answered}/{stats.total}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                    <PlayCircle className="size-3.5" /> Fill out
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
 
         {/* ── Questions wizard ── */}
         <SurveyQuestionsWizard
           open={wizardSection !== null}
-          onClose={() => setWizardSection(null)}
+          onClose={() => { setWizardSection(null); loadSectionStats() }}
           surveyId={survey.id}
           surveyName={survey.name}
           sectionKey={wizardSection ?? ""}
@@ -408,6 +480,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
   const [editTarget,       setEditTarget]       = useState<SurveyTableRow | null>(null)
   const [surveyCustomer,   setSurveyCustomer]   = useState<SurveyCustomer | null>(null)
   const [fileUploadSurvey, setFileUploadSurvey] = useState<SurveyTableRow | null>(null)
+  const [reportSurvey,     setReportSurvey]     = useState<SurveyTableRow | null>(null)
   // Incremented after each upload to signal ExpandedRow to reload files
   const [filesRefreshKeys, setFilesRefreshKeys] = useState<Record<number, number>>({})
 
@@ -570,7 +643,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           <td key="sections" className="px-3 py-3">
             <div className="flex flex-wrap gap-1">
               {s.sections.map(sec => (
-                <span key={sec} className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border border-[var(--border)] bg-[var(--muted)]" style={{ color: "var(--muted-foreground)" }}>
+                <span key={sec} className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border", SECTION_BADGE_STYLES[sec] ?? "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]")}>
                   {SECTION_ICONS[sec]}{SECTION_LABELS[sec] ?? sec}
                 </span>
               ))}
@@ -776,6 +849,12 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                                 <Pencil className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Edit
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
+                                onSelect={() => setReportSurvey(s)}
+                                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
+                              >
+                                <FileBarChart2 className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> View Report
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Item
                                 onSelect={() => { setFileUploadSurvey(s); setExpandedId(s.id) }}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
@@ -857,6 +936,14 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
         users={users}
         survey={editRow}
       />
+
+      {reportSurvey && (
+        <SiteSurveyReportModal
+          open={!!reportSurvey}
+          onClose={() => setReportSurvey(null)}
+          survey={reportSurvey}
+        />
+      )}
 
       <FileUploadDialog
         open={!!fileUploadSurvey}

@@ -1066,6 +1066,7 @@ enum SurveySection {
   WEB_ECOMMERCE
   IOT_AI
   HARDWARE_NETWORK
+  COMPLIANCE
 }
 
 enum QuestionType {
@@ -1074,6 +1075,7 @@ enum QuestionType {
   NUMBER
   DROPDOWN
   MULTI_SELECT
+  DEVICE_LIST
 }
 
 // ─── Master Options ───────────────────────────────────────────────────────────
@@ -1104,12 +1106,10 @@ enum SoftwareType {
 }
 
 model Brand {
-  id       Int            @id @default(autoincrement())
-  name     String         @unique @db.VarChar(120)
-  category MasterCategory
-  isCommon Boolean        @default(true)
-
-  @@index([category])
+  id         Int     @id @default(autoincrement())
+  name       String  @unique @db.VarChar(120)
+  categories Json    @default("[]") // MasterCategory[]
+  isCommon   Boolean @default(true)
 }
 
 model AssetType {

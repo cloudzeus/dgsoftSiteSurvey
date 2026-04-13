@@ -39,13 +39,13 @@ const CATEGORY_COLORS: Record<MasterCategory, { bg: string; fg: string }> = {
 }
 
 const COLUMNS: ColDef[] = [
-  { key: "name",     label: "Name",     sortable: true,  defaultVisible: true, alwaysVisible: true },
-  { key: "category", label: "Category", sortable: true,  defaultVisible: true },
-  { key: "isCommon", label: "Common",   sortable: false, defaultVisible: true },
+  { key: "name",       label: "Name",       sortable: true,  defaultVisible: true, alwaysVisible: true },
+  { key: "categories", label: "Categories", sortable: false, defaultVisible: true },
+  { key: "isCommon",   label: "Common",     sortable: false, defaultVisible: true },
 ]
 
 const DEFAULT_COL_WIDTHS: Record<string, number> = {
-  name: 260, category: 150, isCommon: 110,
+  name: 220, categories: 300, isCommon: 100,
 }
 
 type SortDir = "asc" | "desc"
@@ -55,10 +55,50 @@ type SortDir = "asc" | "desc"
 function CategoryBadge({ category }: { category: MasterCategory }) {
   const c = CATEGORY_COLORS[category]
   return (
-    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
       style={{ background: c.bg, color: c.fg }}>
       {CATEGORY_LABELS[category]}
     </span>
+  )
+}
+
+function CategoryToggle({
+  categories,
+  onChange,
+}: {
+  categories: MasterCategory[]
+  onChange: (cats: MasterCategory[]) => void
+}) {
+  function toggle(cat: MasterCategory) {
+    onChange(
+      categories.includes(cat)
+        ? categories.filter(c => c !== cat)
+        : [...categories, cat]
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {CATEGORIES.map(cat => {
+        const active = categories.includes(cat)
+        const colors = CATEGORY_COLORS[cat]
+        return (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => toggle(cat)}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold border transition-all"
+            style={active
+              ? { background: colors.bg, color: colors.fg, borderColor: colors.fg + "40" }
+              : { background: "transparent", color: "var(--foreground-muted)", borderColor: "var(--border)" }
+            }
+          >
+            {active && <Check className="size-2.5" strokeWidth={3} />}
+            {CATEGORY_LABELS[cat]}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -86,20 +126,21 @@ function RowCheckbox({ checked, onCheckedChange }: {
 // ─── Add dialog ───────────────────────────────────────────────────────────────
 
 function AddBrandDialog({ onSuccess }: { onSuccess: (b: BrandRow) => void }) {
-  const [open, setOpen]         = useState(false)
-  const [name, setName]         = useState("")
-  const [category, setCategory] = useState<MasterCategory>("NETWORKING")
-  const [isCommon, setIsCommon] = useState(true)
-  const [error, setError]       = useState("")
-  const [pending, start]        = useTransition()
+  const [open,       setOpen]       = useState(false)
+  const [name,       setName]       = useState("")
+  const [categories, setCategories] = useState<MasterCategory[]>(["NETWORKING"])
+  const [isCommon,   setIsCommon]   = useState(true)
+  const [error,      setError]      = useState("")
+  const [pending,    start]         = useTransition()
 
-  function reset() { setName(""); setCategory("NETWORKING"); setIsCommon(true); setError("") }
+  function reset() { setName(""); setCategories(["NETWORKING"]); setIsCommon(true); setError("") }
   function close() { reset(); setOpen(false) }
 
   function submit() {
-    if (!name.trim()) { setError("Name is required"); return }
+    if (!name.trim())           { setError("Name is required"); return }
+    if (categories.length === 0) { setError("Select at least one category"); return }
     start(async () => {
-      const res = await createBrand({ name, category, isCommon })
+      const res = await createBrand({ name, categories, isCommon })
       if (res.error) { setError(res.error); return }
       onSuccess(res.brand!)
       close()
@@ -127,7 +168,7 @@ function AddBrandDialog({ onSuccess }: { onSuccess: (b: BrandRow) => void }) {
                 style={{ background: "var(--danger-light)", color: "var(--danger-fg)" }}>{error}</p>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-wide"
                   style={{ color: "var(--foreground-muted)" }}>Name *</label>
@@ -135,13 +176,13 @@ function AddBrandDialog({ onSuccess }: { onSuccess: (b: BrandRow) => void }) {
                   placeholder="e.g. Cisco" className="input-field"
                   onKeyDown={e => e.key === "Enter" && submit()} />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label className="text-[11px] font-semibold uppercase tracking-wide"
-                  style={{ color: "var(--foreground-muted)" }}>Category</label>
-                <select value={category} onChange={e => setCategory(e.target.value as MasterCategory)}
-                  className="input-field">
-                  {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-                </select>
+                  style={{ color: "var(--foreground-muted)" }}>Categories *</label>
+                <CategoryToggle categories={categories} onChange={setCategories} />
+                {categories.length === 0 && (
+                  <p className="text-[11px]" style={{ color: "var(--danger)" }}>Select at least one</p>
+                )}
               </div>
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={isCommon} onChange={e => setIsCommon(e.target.checked)}
@@ -168,16 +209,17 @@ function AddBrandDialog({ onSuccess }: { onSuccess: (b: BrandRow) => void }) {
 function EditDialog({ brand, onSuccess, onClose }: {
   brand: BrandRow; onSuccess: (b: BrandRow) => void; onClose: () => void
 }) {
-  const [name, setName]         = useState(brand.name)
-  const [category, setCategory] = useState<MasterCategory>(brand.category)
-  const [isCommon, setIsCommon] = useState(brand.isCommon)
-  const [error, setError]       = useState("")
-  const [pending, start]        = useTransition()
+  const [name,       setName]       = useState(brand.name)
+  const [categories, setCategories] = useState<MasterCategory[]>(brand.categories)
+  const [isCommon,   setIsCommon]   = useState(brand.isCommon)
+  const [error,      setError]      = useState("")
+  const [pending,    start]         = useTransition()
 
   function submit() {
-    if (!name.trim()) { setError("Name is required"); return }
+    if (!name.trim())           { setError("Name is required"); return }
+    if (categories.length === 0) { setError("Select at least one category"); return }
     start(async () => {
-      const res = await updateBrand(brand.id, { name, category, isCommon })
+      const res = await updateBrand(brand.id, { name, categories, isCommon })
       if (res.error) { setError(res.error); return }
       onSuccess(res.brand!)
       onClose()
@@ -199,20 +241,20 @@ function EditDialog({ brand, onSuccess, onClose }: {
             style={{ background: "var(--danger-light)", color: "var(--danger-fg)" }}>{error}</p>
         )}
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wide"
               style={{ color: "var(--foreground-muted)" }}>Name *</label>
             <input value={name} onChange={e => setName(e.target.value)} className="input-field"
               onKeyDown={e => e.key === "Enter" && submit()} />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label className="text-[11px] font-semibold uppercase tracking-wide"
-              style={{ color: "var(--foreground-muted)" }}>Category</label>
-            <select value={category} onChange={e => setCategory(e.target.value as MasterCategory)}
-              className="input-field">
-              {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-            </select>
+              style={{ color: "var(--foreground-muted)" }}>Categories *</label>
+            <CategoryToggle categories={categories} onChange={setCategories} />
+            {categories.length === 0 && (
+              <p className="text-[11px]" style={{ color: "var(--danger)" }}>Select at least one</p>
+            )}
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={isCommon} onChange={e => setIsCommon(e.target.checked)} />
@@ -283,14 +325,17 @@ export function BrandsTable({ initialBrands }: { initialBrands: BrandRow[] }) {
     let rows = brands
     if (search) {
       const q = search.toLowerCase()
-      rows = rows.filter(r => r.name.toLowerCase().includes(q) || CATEGORY_LABELS[r.category].toLowerCase().includes(q))
+      rows = rows.filter(r =>
+        r.name.toLowerCase().includes(q) ||
+        r.categories.some(c => CATEGORY_LABELS[c].toLowerCase().includes(q))
+      )
     }
     return [...rows].sort((a, b) => {
-      const av = sortKey === "category" ? CATEGORY_LABELS[a.category] : a.name
-      const bv = sortKey === "category" ? CATEGORY_LABELS[b.category] : b.name
+      const av = a.name
+      const bv = b.name
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [brands, search, sortKey, sortDir])
+  }, [brands, search, sortDir])
 
   const totalPages      = Math.max(1, Math.ceil(filtered.length / pageSize))
   const safePage        = Math.min(page, totalPages)
@@ -429,8 +474,15 @@ export function BrandsTable({ initialBrands }: { initialBrands: BrandRow[] }) {
                       <td className="px-4 py-3.5 font-medium truncate"
                         style={{ color: "var(--foreground)" }}>{brand.name}</td>
                     )}
-                    {visibleCols.has("category") && (
-                      <td className="px-4 py-3.5"><CategoryBadge category={brand.category} /></td>
+                    {visibleCols.has("categories") && (
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-wrap gap-1">
+                          {brand.categories.length === 0
+                            ? <span style={{ color: "var(--foreground-subtle)", fontSize: 12 }}>—</span>
+                            : brand.categories.map(c => <CategoryBadge key={c} category={c} />)
+                          }
+                        </div>
+                      </td>
                     )}
                     {visibleCols.has("isCommon") && (
                       <td className="px-4 py-3.5">

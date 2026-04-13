@@ -7,6 +7,7 @@ const monorepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   turbopack: {
     root: monorepoRoot,
   },

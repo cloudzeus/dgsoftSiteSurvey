@@ -2,21 +2,36 @@
 
 import React, { useEffect, useState, useTransition } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
-import { X, Loader2, Save, CheckSquare, Square } from "lucide-react"
+import {
+  X, Loader2, Save, CheckSquare, Square, Check,
+  Plus, Trash2, Pencil, MapPin, Hash, Cpu, Wifi,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Btn } from "@/components/ui/btn"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type QuestionType = "TEXT" | "BOOLEAN" | "NUMBER" | "DROPDOWN" | "MULTI_SELECT"
+type QuestionType = "TEXT" | "BOOLEAN" | "NUMBER" | "DROPDOWN" | "MULTI_SELECT" | "DEVICE_LIST"
+
+interface DeviceConfig {
+  hasIp?: boolean
+}
 
 interface Question {
   id: number
   key: string
   label: string
   type: QuestionType
-  options: { id: number | string; label: string }[]
+  options: { id: number | string; label: string }[] | DeviceConfig
   order: number
+}
+
+interface DeviceEntry {
+  brand: string
+  model: string
+  serial: string
+  location: string
+  ip: string
 }
 
 interface Props {
@@ -28,73 +43,76 @@ interface Props {
   sectionLabel: string
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function parseDevices(value: string): DeviceEntry[] {
+  if (!value || value === "[]") return []
+  try {
+    const arr = JSON.parse(value)
+    return Array.isArray(arr) ? arr : []
+  } catch {
+    return []
+  }
+}
+
+function isDeviceConfig(options: Question["options"]): options is DeviceConfig {
+  return options !== null && !Array.isArray(options) && typeof options === "object"
+}
+
+const EMPTY_DEVICE: DeviceEntry = { brand: "", model: "", serial: "", location: "", ip: "" }
+
 // ─── Input components ─────────────────────────────────────────────────────────
 
-function TextAnswer({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
+function TextAnswer({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <textarea
       value={value}
       onChange={e => onChange(e.target.value)}
       rows={2}
-      className="w-full rounded-xl border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+      className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] resize-none focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors"
       style={{ color: "var(--foreground)" }}
     />
   )
 }
 
-function NumberAnswer({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
+function NumberAnswer({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <input
       type="number"
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="w-32 rounded-xl border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+      className="w-36 rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors"
       style={{ color: "var(--foreground)" }}
     />
   )
 }
 
-function BooleanAnswer({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (v: string) => void
-}) {
+function BooleanAnswer({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className="flex gap-2">
-      {(["Yes", "No"] as const).map(opt => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt === "Yes" ? "true" : "false")}
-          className={cn(
-            "px-4 py-1.5 rounded-xl border text-[12px] font-semibold transition-colors",
-            (opt === "Yes" ? value === "true" : value === "false")
-              ? "bg-indigo-500 border-indigo-500 text-white"
-              : "border-[var(--border)] hover:bg-[var(--muted)] text-[var(--muted-foreground)]",
-          )}
-        >
-          {opt}
-        </button>
-      ))}
+    <div className="flex gap-2 flex-wrap">
+      {(["Yes", "No"] as const).map(opt => {
+        const active = opt === "Yes" ? value === "true" : value === "false"
+        return (
+          <button
+            key={opt}
+            type="button"
+            onClick={() => onChange(opt === "Yes" ? "true" : "false")}
+            className={cn(
+              "px-5 py-1.5 rounded-lg border text-[12px] font-semibold transition-all",
+              active
+                ? "bg-indigo-500 border-indigo-500 text-white shadow-sm shadow-indigo-500/20"
+                : "border-[var(--border)] hover:bg-[var(--muted)] text-[var(--muted-foreground)]",
+            )}
+          >
+            {opt}
+          </button>
+        )
+      })}
       {value !== "" && (
         <button
           type="button"
           onClick={() => onChange("")}
-          className="px-3 py-1.5 rounded-xl border border-dashed border-[var(--border)] text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
+          className="px-3 py-1.5 rounded-lg border border-dashed border-[var(--border)] text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
         >
           Clear
         </button>
@@ -104,9 +122,7 @@ function BooleanAnswer({
 }
 
 function DropdownAnswer({
-  value,
-  options,
-  onChange,
+  value, options, onChange,
 }: {
   value: string
   options: { id: number | string; label: string }[]
@@ -116,25 +132,21 @@ function DropdownAnswer({
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="rounded-xl border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] min-w-48"
+      className="rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] min-w-52 transition-colors"
       style={{ color: value ? "var(--foreground)" : "var(--muted-foreground)" }}
     >
       <option value="">— Select —</option>
       {options.map(o => (
-        <option key={String(o.id)} value={String(o.id)}>
-          {o.label}
-        </option>
+        <option key={String(o.id)} value={String(o.id)}>{o.label}</option>
       ))}
     </select>
   )
 }
 
 function MultiSelectAnswer({
-  value,
-  options,
-  onChange,
+  value, options, onChange,
 }: {
-  value: string   // JSON array string: "[1,4,7]"
+  value: string
   options: { id: number | string; label: string }[]
   onChange: (v: string) => void
 }) {
@@ -154,23 +166,23 @@ function MultiSelectAnswer({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {options.map(o => {
-        const id    = String(o.id)
-        const isOn  = selected.includes(id)
+        const id   = String(o.id)
+        const isOn = selected.includes(id)
         return (
           <button
             key={id}
             type="button"
             onClick={() => toggle(id)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-medium transition-colors",
+              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-all",
               isOn
-                ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-400"
+                ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-400 shadow-sm"
                 : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]",
             )}
           >
-            {isOn ? <CheckSquare className="size-3.5" /> : <Square className="size-3.5 opacity-40" />}
+            {isOn ? <CheckSquare className="size-3.5 shrink-0" /> : <Square className="size-3.5 shrink-0 opacity-40" />}
             {o.label}
           </button>
         )
@@ -179,15 +191,219 @@ function MultiSelectAnswer({
   )
 }
 
+// ─── Device form (inline add / edit) ─────────────────────────────────────────
+
+function DeviceForm({
+  initial,
+  hasIp,
+  onSave,
+  onCancel,
+}: {
+  initial: DeviceEntry
+  hasIp: boolean
+  onSave: (d: DeviceEntry) => void
+  onCancel: () => void
+}) {
+  const [d, setD] = useState<DeviceEntry>(initial)
+
+  function field(label: string, key: keyof DeviceEntry, placeholder?: string, mono = false) {
+    return (
+      <div className="flex-1 min-w-[130px]">
+        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>
+          {label}
+        </label>
+        <input
+          value={d[key]}
+          onChange={e => setD(prev => ({ ...prev, [key]: e.target.value }))}
+          placeholder={placeholder ?? label}
+          className={cn(
+            "w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors",
+            mono && "font-mono",
+          )}
+          style={{ color: "var(--foreground)" }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/[3%] p-3 space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {field("Brand",    "brand",    "e.g. Fortinet")}
+        {field("Model",    "model",    "e.g. FortiGate 100F")}
+        {field("Serial #", "serial",   "e.g. FG100F1234",     true)}
+        {field("Location", "location", "e.g. Server Room A")}
+        {hasIp && field("IP Address", "ip", "e.g. 192.168.1.1", true)}
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-[11px] font-semibold hover:bg-[var(--muted)] transition-colors"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => onSave(d)}
+          className="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-semibold transition-colors"
+        >
+          Save device
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Device list answer ───────────────────────────────────────────────────────
+
+function DeviceListAnswer({
+  value,
+  config,
+  onChange,
+}: {
+  value: string
+  config: DeviceConfig
+  onChange: (v: string) => void
+}) {
+  const hasIp   = config.hasIp ?? false
+  const devices = parseDevices(value)
+
+  const [adding,     setAdding]     = useState(false)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+
+  function commit(list: DeviceEntry[]) {
+    onChange(list.length ? JSON.stringify(list) : "")
+  }
+
+  function handleAdd(d: DeviceEntry) {
+    commit([...devices, d])
+    setAdding(false)
+  }
+
+  function handleEdit(idx: number, d: DeviceEntry) {
+    const next = devices.map((old, i) => i === idx ? d : old)
+    commit(next)
+    setEditingIdx(null)
+  }
+
+  function handleDelete(idx: number) {
+    const next = devices.filter((_, i) => i !== idx)
+    commit(next)
+    if (editingIdx === idx) setEditingIdx(null)
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Device cards */}
+      {devices.map((d, idx) => (
+        <div key={idx}>
+          {editingIdx === idx ? (
+            <DeviceForm
+              initial={d}
+              hasIp={hasIp}
+              onSave={updated => handleEdit(idx, updated)}
+              onCancel={() => setEditingIdx(null)}
+            />
+          ) : (
+            <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/10 px-3.5 py-2.5 group hover:border-indigo-500/20 hover:bg-indigo-500/[2%] transition-colors">
+              {/* Index badge */}
+              <span className="size-5 rounded-full bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
+                {idx + 1}
+              </span>
+
+              {/* Device info */}
+              <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-4">
+                <DeviceField icon={<Cpu className="size-3" />}  label="Brand / Model"
+                  value={[d.brand, d.model].filter(Boolean).join(" — ") || "—"} />
+                <DeviceField icon={<Hash className="size-3" />} label="Serial"
+                  value={d.serial || "—"} mono />
+                <DeviceField icon={<MapPin className="size-3" />} label="Location"
+                  value={d.location || "—"} />
+                {hasIp && (
+                  <DeviceField icon={<Wifi className="size-3" />} label="IP"
+                    value={d.ip || "—"} mono />
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <button
+                  type="button"
+                  onClick={() => { setEditingIdx(idx); setAdding(false) }}
+                  className="rounded-md p-1.5 hover:bg-[var(--muted)] transition-colors"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  <Pencil className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(idx)}
+                  className="rounded-md p-1.5 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  <Trash2 className="size-3" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Add form */}
+      {adding && (
+        <DeviceForm
+          initial={EMPTY_DEVICE}
+          hasIp={hasIp}
+          onSave={handleAdd}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      {/* Add button */}
+      {!adding && (
+        <button
+          type="button"
+          onClick={() => { setAdding(true); setEditingIdx(null) }}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold border border-dashed border-[var(--border)] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          <Plus className="size-3" />
+          Add device
+        </button>
+      )}
+    </div>
+  )
+}
+
+function DeviceField({
+  icon, label, value, mono = false,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div>
+      <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--muted-foreground)" }}>
+        {icon}{label}
+      </p>
+      <p
+        className={cn("text-[12px] truncate", mono && "font-mono")}
+        style={{ color: value === "—" ? "var(--muted-foreground)" : "var(--foreground)" }}
+      >
+        {value}
+      </p>
+    </div>
+  )
+}
+
 // ─── Main wizard ──────────────────────────────────────────────────────────────
 
 export function SurveyQuestionsWizard({
-  open,
-  onClose,
-  surveyId,
-  surveyName,
-  sectionKey,
-  sectionLabel,
+  open, onClose, surveyId, surveyName, sectionKey, sectionLabel,
 }: Props) {
   const [questions,  setQuestions]  = useState<Question[]>([])
   const [answers,    setAnswers]    = useState<Record<string, string>>({})
@@ -196,8 +412,13 @@ export function SurveyQuestionsWizard({
   const [saved,      setSaved]      = useState(false)
   const [isPending,  startSave]     = useTransition()
 
-  // Map lowercase UI key → DB enum value  (hardware_network → HARDWARE_NETWORK)
   const dbSection = sectionKey.toUpperCase()
+
+  const answeredCount = questions.filter(q => {
+    const v = answers[q.key] ?? ""
+    if (q.type === "DEVICE_LIST") return parseDevices(v).length > 0
+    return v !== "" && v !== "[]"
+  }).length
 
   useEffect(() => {
     if (!open || !sectionKey) return
@@ -272,6 +493,9 @@ export function SurveyQuestionsWizard({
     })
   }
 
+  const progressPct = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0
+  const allDone = questions.length > 0 && answeredCount === questions.length
+
   return (
     <Dialog.Root open={open} onOpenChange={v => { if (!v) onClose() }}>
       <Dialog.Portal>
@@ -300,8 +524,36 @@ export function SurveyQuestionsWizard({
             </Dialog.Close>
           </div>
 
+          {/* Progress bar */}
+          {!loading && questions.length > 0 && (
+            <div className="shrink-0 px-6 py-3 border-b border-[var(--border)]" style={{ background: "var(--muted)/30" }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
+                  Progress
+                </span>
+                <span
+                  className="text-[11px] font-bold tabular-nums transition-colors"
+                  style={{ color: allDone ? "rgb(52 211 153)" : "var(--foreground)" }}
+                >
+                  {answeredCount} / {questions.length} answered
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                <div
+                  className="h-full rounded-full transition-all duration-500 ease-out"
+                  style={{
+                    width: `${progressPct}%`,
+                    background: allDone
+                      ? "linear-gradient(90deg, rgb(16 185 129), rgb(52 211 153))"
+                      : "linear-gradient(90deg, rgb(99 102 241), rgb(129 140 248))",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Body */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3">
             {loading && (
               <div className="flex items-center justify-center py-16 gap-2" style={{ color: "var(--muted-foreground)" }}>
                 <Loader2 className="size-5 animate-spin" />
@@ -323,59 +575,106 @@ export function SurveyQuestionsWizard({
               </div>
             )}
 
-            {!loading && questions.map((q, idx) => (
-              <div key={q.id} className="space-y-2">
-                <label className="block">
-                  <span className="text-[11px] font-black uppercase tracking-widest text-indigo-400/70">
-                    Q{idx + 1}
-                  </span>
-                  <p className="text-[13px] font-semibold mt-0.5" style={{ color: "var(--foreground)" }}>
-                    {q.label}
-                  </p>
-                </label>
+            {!loading && questions.map((q, idx) => {
+              const val        = answers[q.key] ?? ""
+              const isAnswered = q.type === "DEVICE_LIST"
+                ? parseDevices(val).length > 0
+                : val !== "" && val !== "[]"
 
-                {q.type === "TEXT" && (
-                  <TextAnswer value={answers[q.key] ?? ""} onChange={v => setAnswer(q.key, v)} />
-                )}
-                {q.type === "NUMBER" && (
-                  <NumberAnswer value={answers[q.key] ?? ""} onChange={v => setAnswer(q.key, v)} />
-                )}
-                {q.type === "BOOLEAN" && (
-                  <BooleanAnswer value={answers[q.key] ?? ""} onChange={v => setAnswer(q.key, v)} />
-                )}
-                {q.type === "DROPDOWN" && (
-                  <DropdownAnswer
-                    value={answers[q.key] ?? ""}
-                    options={q.options}
-                    onChange={v => setAnswer(q.key, v)}
-                  />
-                )}
-                {q.type === "MULTI_SELECT" && (
-                  <MultiSelectAnswer
-                    value={answers[q.key] ?? ""}
-                    options={q.options}
-                    onChange={v => setAnswer(q.key, v)}
-                  />
-                )}
-              </div>
-            ))}
+              return (
+                <div
+                  key={q.id}
+                  className={cn(
+                    "rounded-xl border p-4 transition-all duration-200",
+                    isAnswered
+                      ? "border-emerald-500/25 bg-emerald-500/[3%]"
+                      : "border-[var(--border)]",
+                  )}
+                >
+                  {/* Question label row */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div
+                      className={cn(
+                        "shrink-0 size-5 rounded-full flex items-center justify-center mt-0.5 transition-all",
+                        isAnswered
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-indigo-500/10 text-indigo-400",
+                      )}
+                    >
+                      {isAnswered
+                        ? <Check className="size-2.5" strokeWidth={3} />
+                        : <span className="text-[9px] font-black leading-none">{idx + 1}</span>
+                      }
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[13px] font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
+                        {q.label}
+                      </p>
+                      {q.type === "DEVICE_LIST" && (() => {
+                        const count = parseDevices(val).length
+                        return count > 0 ? (
+                          <p className="text-[11px] mt-0.5 text-emerald-400 font-medium">
+                            {count} device{count !== 1 ? "s" : ""} recorded
+                          </p>
+                        ) : null
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Input */}
+                  <div className={q.type === "DEVICE_LIST" ? "" : "ml-8"}>
+                    {q.type === "TEXT" && (
+                      <TextAnswer value={val} onChange={v => setAnswer(q.key, v)} />
+                    )}
+                    {q.type === "NUMBER" && (
+                      <NumberAnswer value={val} onChange={v => setAnswer(q.key, v)} />
+                    )}
+                    {q.type === "BOOLEAN" && (
+                      <BooleanAnswer value={val} onChange={v => setAnswer(q.key, v)} />
+                    )}
+                    {q.type === "DROPDOWN" && Array.isArray(q.options) && (
+                      <DropdownAnswer
+                        value={val}
+                        options={q.options as { id: number | string; label: string }[]}
+                        onChange={v => setAnswer(q.key, v)}
+                      />
+                    )}
+                    {q.type === "MULTI_SELECT" && Array.isArray(q.options) && (
+                      <MultiSelectAnswer
+                        value={val}
+                        options={q.options as { id: number | string; label: string }[]}
+                        onChange={v => setAnswer(q.key, v)}
+                      />
+                    )}
+                    {q.type === "DEVICE_LIST" && (
+                      <DeviceListAnswer
+                        value={val}
+                        config={isDeviceConfig(q.options) ? q.options : {}}
+                        onChange={v => setAnswer(q.key, v)}
+                      />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {/* Footer */}
           {!loading && questions.length > 0 && (
             <div className="px-6 py-4 border-t border-[var(--border)] shrink-0 flex items-center justify-between gap-3">
-              <div className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                {questions.length} question{questions.length !== 1 ? "s" : ""}
-              </div>
-              <div className="flex items-center gap-3">
-                {saved && !isPending && (
-                  <p className="text-[12px] text-emerald-400 font-semibold">Saved</p>
-                )}
-                <Btn size="sm" onClick={handleSave} disabled={isPending}>
-                  {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                  Save answers
-                </Btn>
-              </div>
+              {saveError && !loading ? (
+                <p className="text-[11px] text-rose-400 font-semibold truncate">{saveError}</p>
+              ) : saved && !isPending ? (
+                <span className="inline-flex items-center gap-1.5 text-[12px] text-emerald-400 font-semibold">
+                  <Check className="size-3.5" strokeWidth={3} /> Saved successfully
+                </span>
+              ) : (
+                <span />
+              )}
+              <Btn size="sm" onClick={handleSave} disabled={isPending}>
+                {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                Save answers
+              </Btn>
             </div>
           )}
         </Dialog.Content>

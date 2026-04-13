@@ -1,10 +1,15 @@
 import { db } from "@/lib/db"
 import { BrandsTable } from "@/components/master-options/brands-table"
+import type { MasterCategory } from "@prisma/client"
 
 export const metadata = { title: "Brands" }
 
 export default async function BrandsPage() {
-  const brands = await db.brand.findMany({ orderBy: { name: "asc" } })
+  const raw = await db.brand.findMany({ orderBy: { name: "asc" } })
+  const brands = raw.map(b => ({
+    ...b,
+    categories: Array.isArray(b.categories) ? (b.categories as MasterCategory[]) : [],
+  }))
 
   return (
     <div className="space-y-6 w-full">

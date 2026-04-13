@@ -72,25 +72,29 @@ async function main() {
 
   // ─── Master Options ───────────────────────────────────────────────────────────
 
-  const brands = [
-    { name: "Cisco",        category: MasterCategory.NETWORKING },
-    { name: "Ubiquiti",     category: MasterCategory.NETWORKING },
-    { name: "Mikrotik",     category: MasterCategory.NETWORKING },
-    { name: "HPE Aruba",    category: MasterCategory.NETWORKING },
-    { name: "Fortinet",     category: MasterCategory.SECURITY   },
-    { name: "Sophos",       category: MasterCategory.SECURITY   },
-    { name: "Palo Alto",    category: MasterCategory.SECURITY   },
-    { name: "Check Point",  category: MasterCategory.SECURITY   },
-    { name: "Dell",         category: MasterCategory.COMPUTING  },
-    { name: "HP",           category: MasterCategory.COMPUTING  },
-    { name: "Lenovo",       category: MasterCategory.COMPUTING  },
-    { name: "Synology",     category: MasterCategory.STORAGE    },
-    { name: "QNAP",         category: MasterCategory.STORAGE    },
-    { name: "APC",          category: MasterCategory.POWER      },
-    { name: "Eaton",        category: MasterCategory.POWER      },
+  const brands: { name: string; categories: MasterCategory[] }[] = [
+    { name: "Cisco",       categories: [MasterCategory.NETWORKING] },
+    { name: "Ubiquiti",    categories: [MasterCategory.NETWORKING] },
+    { name: "Mikrotik",    categories: [MasterCategory.NETWORKING] },
+    { name: "HPE Aruba",   categories: [MasterCategory.NETWORKING] },
+    { name: "Fortinet",    categories: [MasterCategory.SECURITY]   },
+    { name: "Sophos",      categories: [MasterCategory.SECURITY]   },
+    { name: "Palo Alto",   categories: [MasterCategory.SECURITY]   },
+    { name: "Check Point", categories: [MasterCategory.SECURITY]   },
+    { name: "Dell",        categories: [MasterCategory.COMPUTING]  },
+    { name: "HP",          categories: [MasterCategory.COMPUTING, MasterCategory.NETWORKING] },
+    { name: "Lenovo",      categories: [MasterCategory.COMPUTING]  },
+    { name: "Synology",    categories: [MasterCategory.STORAGE]    },
+    { name: "QNAP",        categories: [MasterCategory.STORAGE]    },
+    { name: "APC",         categories: [MasterCategory.POWER]      },
+    { name: "Eaton",       categories: [MasterCategory.POWER]      },
   ]
   for (const b of brands) {
-    await db.brand.upsert({ where: { name: b.name }, update: {}, create: b })
+    await db.brand.upsert({
+      where:  { name: b.name },
+      update: { categories: b.categories },
+      create: { name: b.name, categories: b.categories },
+    })
   }
   console.log(`✓ ${brands.length} brands seeded`)
 
@@ -641,76 +645,79 @@ async function main() {
     },
 
     // ── HARDWARE & NETWORK ────────────────────────────────────────────────────
+    // Deactivated — replaced by DEVICE_LIST equivalents below
+    { section: SurveySection.HARDWARE_NETWORK, key: "firewall_brand",  label: "Perimeter Security (Firewall) Brand",  type: QuestionType.DROPDOWN,      order: 1,  optionsSource: "brand:SECURITY",  isActive: false },
+    { section: SurveySection.HARDWARE_NETWORK, key: "switching_brand", label: "Core Switching / Networking Brand",     type: QuestionType.DROPDOWN,      order: 2,  optionsSource: "brand:NETWORKING", isActive: false },
+    { section: SurveySection.HARDWARE_NETWORK, key: "wifi_brand",      label: "Wi-Fi / Wireless Brand",               type: QuestionType.DROPDOWN,      order: 3,  optionsSource: "brand:NETWORKING", isActive: false },
+    { section: SurveySection.HARDWARE_NETWORK, key: "server_count",    label: "Number of Physical Servers",           type: QuestionType.NUMBER,        order: 4,  isActive: false },
+    { section: SurveySection.HARDWARE_NETWORK, key: "server_brand",    label: "Server Brand(s)",                      type: QuestionType.MULTI_SELECT,  order: 5,  optionsSource: "brand:COMPUTING",  isActive: false },
+    { section: SurveySection.HARDWARE_NETWORK, key: "nas_brand",       label: "NAS / Storage Brand",                  type: QuestionType.DROPDOWN,      order: 7,  optionsSource: "brand:STORAGE",    isActive: false },
+    { section: SurveySection.HARDWARE_NETWORK, key: "ups_brand",       label: "UPS / Power Protection Brand",         type: QuestionType.DROPDOWN,      order: 8,  optionsSource: "brand:POWER",      isActive: false },
+
+    // ── DEVICE_LIST — per-device inventory with brand/model/serial/location/IP ─
     {
       section: SurveySection.HARDWARE_NETWORK,
-      key: "firewall_brand",
-      label: "Perimeter Security (Firewall) Brand",
-      type: QuestionType.DROPDOWN,
+      key: "firewall_devices",
+      label: "Firewall / Perimeter Security Devices",
+      type: QuestionType.DEVICE_LIST,
       order: 1,
-      optionsSource: "brand:SECURITY",
+      options: { hasIp: true } as any,
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
-      key: "switching_brand",
-      label: "Core Switching / Networking Brand",
-      type: QuestionType.DROPDOWN,
+      key: "switching_devices",
+      label: "Network Switches",
+      type: QuestionType.DEVICE_LIST,
       order: 2,
-      optionsSource: "brand:NETWORKING",
+      options: { hasIp: true } as any,
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
-      key: "wifi_brand",
-      label: "Wi-Fi / Wireless Brand",
-      type: QuestionType.DROPDOWN,
+      key: "wifi_devices",
+      label: "Wi-Fi Access Points",
+      type: QuestionType.DEVICE_LIST,
       order: 3,
-      optionsSource: "brand:NETWORKING",
+      options: { hasIp: true } as any,
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
-      key: "server_count",
-      label: "Number of Physical Servers",
-      type: QuestionType.NUMBER,
+      key: "server_devices",
+      label: "Physical Servers",
+      type: QuestionType.DEVICE_LIST,
       order: 4,
+      options: { hasIp: true } as any,
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
-      key: "server_brand",
-      label: "Server Brand(s)",
-      type: QuestionType.MULTI_SELECT,
+      key: "nas_devices",
+      label: "NAS / Storage Devices",
+      type: QuestionType.DEVICE_LIST,
       order: 5,
-      optionsSource: "brand:COMPUTING",
+      options: { hasIp: true } as any,
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
-      key: "virtualization",
-      label: "Virtualization Platform",
-      type: QuestionType.DROPDOWN,
+      key: "ups_devices",
+      label: "UPS / Power Protection Units",
+      type: QuestionType.DEVICE_LIST,
       order: 6,
-      // Static — no master table for hypervisors
-      options: ["VMware vSphere / ESXi", "Hyper-V", "Proxmox VE", "Nutanix", "None (bare metal only)"],
-    },
-    {
-      section: SurveySection.HARDWARE_NETWORK,
-      key: "nas_brand",
-      label: "NAS / Storage Brand",
-      type: QuestionType.DROPDOWN,
-      order: 7,
-      optionsSource: "brand:STORAGE",
-    },
-    {
-      section: SurveySection.HARDWARE_NETWORK,
-      key: "ups_brand",
-      label: "UPS / Power Protection Brand",
-      type: QuestionType.DROPDOWN,
-      order: 8,
-      optionsSource: "brand:POWER",
+      options: { hasIp: false } as any,
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
       key: "workstation_count",
       label: "Number of Workstations / Desktops",
       type: QuestionType.NUMBER,
-      order: 9,
+      order: 7,
+    },
+    {
+      section: SurveySection.HARDWARE_NETWORK,
+      key: "virtualization",
+      label: "Virtualization Platform",
+      type: QuestionType.DROPDOWN,
+      order: 8,
+      // Static — no master table for hypervisors
+      options: ["VMware vSphere / ESXi", "Hyper-V", "Proxmox VE", "Nutanix", "None (bare metal only)"],
     },
     {
       section: SurveySection.HARDWARE_NETWORK,
@@ -771,6 +778,7 @@ async function main() {
   ]
 
   for (const q of surveyQuestions) {
+    const isActive = (q as any).isActive !== undefined ? (q as any).isActive : true
     await db.surveyQuestion.upsert({
       where: { key: q.key },
       update: {
@@ -780,6 +788,7 @@ async function main() {
         order: q.order,
         optionsSource: q.optionsSource ?? null,
         options: q.options ?? Prisma.JsonNull,
+        isActive,
       },
       create: {
         section: q.section,
@@ -789,6 +798,7 @@ async function main() {
         order: q.order,
         optionsSource: q.optionsSource ?? null,
         options: q.options ?? Prisma.JsonNull,
+        isActive,
       },
     })
   }
