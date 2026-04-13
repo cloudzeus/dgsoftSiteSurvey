@@ -5,7 +5,7 @@ import { SoftwareType, WebCategory, DigitalToolType, IotTech } from "@prisma/cli
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   AlignmentType, WidthType, BorderStyle, ShadingType,
-  Footer, PageNumber, convertInchesToTwip,
+  Footer, PageNumber, convertInchesToTwip, ImageRun,
 } from "docx"
 
 type Params = { params: Promise<{ id: string }> }
@@ -22,12 +22,19 @@ const SECTION_LABELS_GR: Record<string, string> = {
   IOT_AI:           "IoT & Τεχνητή Νοημοσύνη",
 }
 
+// 4-color palette: RED, DARK, GRAY, MUTED
+const RED   = "B8020B"
+const DARK  = "1E293B"
+const GRAY  = "4B5563"
+const MUTED = "9CA3AF"
+
+// All sections share the same red accent
 const SECTION_COLORS: Record<string, string> = {
-  HARDWARE_NETWORK: "0284C7",
-  SOFTWARE:         "7C3AED",
-  WEB_ECOMMERCE:    "2563EB",
-  COMPLIANCE:       "BE123C",
-  IOT_AI:           "0D9488",
+  HARDWARE_NETWORK: RED,
+  SOFTWARE:         RED,
+  WEB_ECOMMERCE:    RED,
+  COMPLIANCE:       RED,
+  IOT_AI:           RED,
 }
 
 const SECTION_ENUM_MAP: Record<string, string> = {
@@ -57,6 +64,14 @@ const thin = (c = "E2E8F0"): { style: typeof BorderStyle.SINGLE; size: number; c
 const thinBorders = { top: thin(), bottom: thin(), left: thin(), right: thin() }
 const CM = (v: number) => Math.round(v * 567)
 
+// Greek uppercase without tonos (Ά→Α etc.)
+function upperNoTonos(s: string): string {
+  return s.toUpperCase()
+    .replace(/Ά/g, "Α").replace(/Έ/g, "Ε").replace(/Ή/g, "Η")
+    .replace(/Ί/g, "Ι").replace(/Ό/g, "Ο").replace(/Ύ/g, "Υ").replace(/Ώ/g, "Ω")
+    .replace(/ΐ/g, "Ι").replace(/ΰ/g, "Υ")
+}
+
 // ─── HTML → docx Paragraphs ───────────────────────────────────────────────────
 
 function parseInlineHtml(html: string, size: number, color = "1F2937"): TextRun[] {
@@ -67,22 +82,22 @@ function parseInlineHtml(html: string, size: number, color = "1F2937"): TextRun[
 
   const runs: TextRun[] = []
   const re = /<(\/?)(\w+)[^>]*>|([^<]+)/g
-  let bold = false, italic = false, underline = false
+  let bold = false, underline = false
   let m: RegExpExecArray | null
 
   while ((m = re.exec(src)) !== null) {
     if (m[3] !== undefined) {
       const t = m[3]
       if (t) runs.push(new TextRun({
-        text: t, bold, italics: italic, underline: underline ? {} : undefined,
+        text: t, bold, underline: underline ? {} : undefined,
         size, font: FONT, color,
       }))
     } else {
       const closing = m[1] === "/"
       const tag = m[2].toLowerCase()
       if (tag === "b" || tag === "strong") bold = !closing
-      else if (tag === "i" || tag === "em") italic = !closing
       else if (tag === "u") underline = !closing
+      // <i>/<em> intentionally ignored — no italics
     }
   }
   return runs
@@ -123,7 +138,7 @@ function htmlToParagraphs(html: string, opts: {
       for (const item of block.items) {
         const runs = parseInlineHtml(item, size, color)
         if (runs.length) paras.push(new Paragraph({
-          children: [new TextRun({ text: "• ", bold: true, size, font: FONT, color: "2563EB" }), ...runs],
+          children: [new TextRun({ text: "• ", bold: true, size, font: FONT, color: RED }), ...runs],
           spacing: { after: 60 },
           indent: { left: 360 },
         }))
@@ -132,7 +147,7 @@ function htmlToParagraphs(html: string, opts: {
       block.items.forEach((item, i) => {
         const runs = parseInlineHtml(item, size, color)
         if (runs.length) paras.push(new Paragraph({
-          children: [new TextRun({ text: `${i + 1}. `, bold: true, size, font: FONT, color: "2563EB" }), ...runs],
+          children: [new TextRun({ text: `${i + 1}. `, bold: true, size, font: FONT, color: RED }), ...runs],
           spacing: { after: 60 },
           indent: { left: 360 },
         }))
@@ -254,7 +269,7 @@ function sectionDivider(title: string, bgColor: string): (Paragraph | Table)[] {
           margins: { top: 110, bottom: 110, left: 220, right: 220 },
           children: [new Paragraph({
             children: [new TextRun({
-              text: title.toUpperCase(),
+              text: upperNoTonos(title),
               color: "FFFFFF", bold: true, size: 22, font: FONT, characterSpacing: 60,
             })],
           })],
@@ -265,7 +280,7 @@ function sectionDivider(title: string, bgColor: string): (Paragraph | Table)[] {
   ]
 }
 
-function subSectionHeader(label: string, color: string): (Paragraph | Table)[] {
+function subSectionHeader(label: string, _color?: string): (Paragraph | Table)[] {
   return [
     new Paragraph({ text: "", spacing: { before: 280, after: 0 } }),
     new Table({
@@ -275,7 +290,7 @@ function subSectionHeader(label: string, color: string): (Paragraph | Table)[] {
           new TableCell({
             width: { size: 1, type: WidthType.PERCENTAGE },
             borders: noBorders,
-            shading: { type: ShadingType.SOLID, color },
+            shading: { type: ShadingType.SOLID, color: RED },
             children: [new Paragraph({ text: "" })],
           }),
           new TableCell({
@@ -284,7 +299,7 @@ function subSectionHeader(label: string, color: string): (Paragraph | Table)[] {
             shading: { type: ShadingType.SOLID, color: "F8FAFC" },
             margins: { top: 80, bottom: 80, left: 180, right: 180 },
             children: [new Paragraph({
-              children: [new TextRun({ text: label, bold: true, size: 24, font: FONT, color })],
+              children: [new TextRun({ text: label, bold: true, size: 22, font: FONT, color: DARK })],
             })],
           }),
         ],
@@ -303,7 +318,7 @@ function infoRow(label: string, value: string): TableRow {
         shading: { type: ShadingType.SOLID, color: "F8FAFC" },
         margins: { top: 80, bottom: 80, left: 140, right: 140 },
         children: [new Paragraph({
-          children: [new TextRun({ text: label, bold: true, size: 18, font: FONT, color: "374151" })],
+          children: [new TextRun({ text: label, bold: true, size: 18, font: FONT, color: GRAY })],
         })],
       }),
       new TableCell({
@@ -314,8 +329,7 @@ function infoRow(label: string, value: string): TableRow {
           children: [new TextRun({
             text: value || "—",
             size: 18, font: FONT,
-            color: value ? "111827" : "9CA3AF",
-            italics: !value,
+            color: value ? DARK : MUTED,
           })],
         })],
       }),
@@ -398,6 +412,35 @@ export async function GET(req: Request, { params }: Params) {
   })
   const answerByKey: Record<string, string | null> = Object.fromEntries(results.map(r => [r.question.key, r.answerValue]))
 
+  // ── 1b. Fetch company settings + logo ────────────────────────────────────
+
+  const appSettings = await db.appSettings.findUnique({ where: { id: "singleton" } })
+  const company = {
+    name:      appSettings?.companyName ?? "",
+    address:   appSettings?.address ?? "",
+    city:      appSettings?.city ?? "",
+    zip:       appSettings?.zip ?? "",
+    phone:     appSettings?.phone ?? "",
+    email:     appSettings?.email ?? "",
+    website:   appSettings?.website ?? "",
+    taxId:     appSettings?.taxId ?? "",
+    taxOffice: appSettings?.taxOffice ?? "",
+    logoUrl:   appSettings?.companyLogo ?? null,
+  }
+
+  let logoBuffer: Buffer | null = null
+  let logoType: string = "png"
+  if (company.logoUrl) {
+    try {
+      const ext = company.logoUrl.split(".").pop()?.toLowerCase() ?? ""
+      if (ext === "webp") logoType = "webp"
+      else if (ext === "jpg" || ext === "jpeg") logoType = "jpg"
+      else logoType = "png"
+      const res = await fetch(company.logoUrl)
+      if (res.ok) logoBuffer = Buffer.from(await res.arrayBuffer())
+    } catch { /* no logo — skip */ }
+  }
+
   // ── 2. Build document elements ────────────────────────────────────────────
 
   const generatedDate = new Date().toLocaleDateString("el-GR")
@@ -407,158 +450,140 @@ export async function GET(req: Request, { params }: Params) {
 
   const els: (Paragraph | Table)[] = []
 
-  // ── COVER PAGE ─────────────────────────────────────────────────────────────
+  // ── HEADER: Company details (left) + Logo (right) ─────────────────────────
 
-  // Accent bar
-  els.push(new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [new TableRow({
-      children: [new TableCell({
-        shading: { type: ShadingType.SOLID, color: "2563EB" },
-        borders: noBorders,
-        children: [new Paragraph({ text: "", spacing: { before: 60, after: 60 } })],
+  const companyAddrLine = [company.address, company.city, company.zip].filter(Boolean).join(", ")
+  const companyInfoChildren: Paragraph[] = [
+    new Paragraph({
+      children: [new TextRun({ text: company.name, bold: true, size: 24, font: FONT, color: DARK })],
+      spacing: { after: 60 },
+    }),
+    ...(companyAddrLine ? [new Paragraph({
+      children: [new TextRun({ text: `Δ/ΝΣΗ: ${companyAddrLine}`, size: 18, font: FONT, color: GRAY })],
+      spacing: { after: 40 },
+    })] : []),
+    ...(company.phone ? [new Paragraph({
+      children: [new TextRun({ text: `Τηλ: ${company.phone}`, size: 18, font: FONT, color: GRAY })],
+      spacing: { after: 40 },
+    })] : []),
+    ...((company.taxId || company.taxOffice) ? [new Paragraph({
+      children: [new TextRun({
+        text: [company.taxId ? `Α.Φ.Μ: ${company.taxId}` : "", company.taxOffice ? `ΔΟΥ: ${company.taxOffice}` : ""].filter(Boolean).join("   "),
+        size: 18, font: FONT, color: GRAY,
       })],
-    })],
-  }))
-
-  els.push(new Paragraph({ text: "", spacing: { before: 0, after: CM(1.8) } }))
-
-  // Title banner
-  els.push(new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [new TableRow({
-      children: [new TableCell({
-        shading: { type: ShadingType.SOLID, color: "1B3A6B" },
-        borders: noBorders,
-        margins: { top: CM(1), bottom: CM(1), left: CM(1), right: CM(1) },
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: "ΤΕΧΝΙΚΗ & ΕΜΠΟΡΙΚΗ ΠΡΟΤΑΣΗ", color: "FFFFFF", bold: true, size: 56, font: FONT, characterSpacing: 80 })],
-            spacing: { after: 260 },
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: proposal.title, color: "93C5FD", size: 34, font: FONT })],
-          }),
-        ],
+      spacing: { after: 40 },
+    })] : []),
+    ...((company.email || company.website) ? [new Paragraph({
+      children: [new TextRun({
+        text: [company.email, company.website].filter(Boolean).join("   "),
+        size: 18, font: FONT, color: GRAY,
       })],
-    })],
-  }))
+      spacing: { after: 0 },
+    })] : []),
+  ]
 
-  els.push(new Paragraph({ text: "", spacing: { before: 0, after: CM(0.9) } }))
-
-  // Cover info strip — 4 cells
   els.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [new TableRow({
       children: [
-        // Customer
+        // Left: company details
         new TableCell({
-          width: { size: 34, type: WidthType.PERCENTAGE },
-          borders: { ...noBorders, right: thin("BFDBFE") },
-          shading: { type: ShadingType.SOLID, color: "EFF6FF" },
-          margins: { top: 160, bottom: 160, left: 220, right: 220 },
-          children: [
-            new Paragraph({ children: [new TextRun({ text: "ΠΕΛΑΤΗΣ", bold: true, size: 15, font: FONT, color: "1D4ED8", characterSpacing: 60 })] }),
-            new Paragraph({ children: [new TextRun({ text: customerName, bold: true, size: 28, font: FONT, color: "1E3A5F" })], spacing: { before: 60 } }),
-          ],
+          width: { size: 60, type: WidthType.PERCENTAGE },
+          borders: thinBorders,
+          margins: { top: 160, bottom: 160, left: 200, right: 200 },
+          children: companyInfoChildren.length ? companyInfoChildren : [new Paragraph({ text: "" })],
         }),
-        // Date
+        // Right: logo
         new TableCell({
-          width: { size: 22, type: WidthType.PERCENTAGE },
-          borders: { ...noBorders, right: thin("E5E7EB") },
-          shading: { type: ShadingType.SOLID, color: "F9FAFB" },
-          margins: { top: 160, bottom: 160, left: 220, right: 220 },
-          children: [
-            new Paragraph({ children: [new TextRun({ text: "ΗΜΕΡΟΜΗΝΙΑ", bold: true, size: 15, font: FONT, color: "6B7280", characterSpacing: 40 })] }),
-            new Paragraph({ children: [new TextRun({ text: surveyDate, bold: true, size: 26, font: FONT, color: "374151" })], spacing: { before: 60 } }),
-          ],
-        }),
-        // Status
-        new TableCell({
-          width: { size: 22, type: WidthType.PERCENTAGE },
-          borders: { ...noBorders, right: thin("E5E7EB") },
-          shading: { type: ShadingType.SOLID, color: "F9FAFB" },
-          margins: { top: 160, bottom: 160, left: 220, right: 220 },
-          children: [
-            new Paragraph({ children: [new TextRun({ text: "ΚΑΤΑΣΤΑΣΗ", bold: true, size: 15, font: FONT, color: "6B7280", characterSpacing: 40 })] }),
-            new Paragraph({ children: [new TextRun({ text: PROPOSAL_STATUS_GR[proposal.status] ?? proposal.status, bold: true, size: 26, font: FONT, color: "374151" })], spacing: { before: 60 } }),
-          ],
-        }),
-        // Surveyor
-        new TableCell({
-          width: { size: 22, type: WidthType.PERCENTAGE },
-          borders: noBorders,
-          shading: { type: ShadingType.SOLID, color: "F9FAFB" },
-          margins: { top: 160, bottom: 160, left: 220, right: 220 },
-          children: [
-            new Paragraph({ children: [new TextRun({ text: "ΤΕΧΝΙΚΟΣ", bold: true, size: 15, font: FONT, color: "6B7280", characterSpacing: 40 })] }),
-            new Paragraph({ children: [new TextRun({ text: surveyorName, bold: true, size: 22, font: FONT, color: "374151" })], spacing: { before: 60 } }),
-          ],
+          width: { size: 40, type: WidthType.PERCENTAGE },
+          borders: thinBorders,
+          margins: { top: 120, bottom: 120, left: 200, right: 200 },
+          children: [new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: logoBuffer
+              ? [new ImageRun({ data: logoBuffer, transformation: { width: 180, height: 72 }, type: logoType as any })]
+              : [new TextRun({ text: company.name, bold: true, size: 28, font: FONT, color: DARK })],
+            spacing: { before: 60, after: 60 },
+          })],
         }),
       ],
     })],
   }))
 
-  els.push(new Paragraph({ text: "", spacing: { before: CM(2), after: 0 } }))
-  els.push(new Paragraph({
-    alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: `Εκδόθηκε: ${generatedDate}  |  ΕΜΠΙΣΤΕΥΤΙΚΟ ΕΓΓΡΑΦΟ`, size: 17, font: FONT, color: "9CA3AF", italics: true })],
-  }))
-
-  // Page break (use pageBreakBefore on next section's first element instead)
-  els.push(new Paragraph({ text: "", pageBreakBefore: true, spacing: { before: 0, after: 0 } }))
-
-  // ── SECTION 1: CUSTOMER & SURVEY INFO ─────────────────────────────────────
-
-  els.push(...sectionDivider("Πληροφορίες Πελάτη & Έργου", "1B3A6B"))
-
-  const custRows: TableRow[] = [
-    infoRow("Επωνυμία", customerName),
-  ]
-  if (survey.customer?.afm)       custRows.push(infoRow("ΑΦΜ", survey.customer.afm))
-  const addr = [survey.customer?.address, survey.customer?.city, survey.customer?.zip].filter(Boolean).join(", ")
-  if (addr)                       custRows.push(infoRow("Διεύθυνση", addr))
-  const phones = [survey.customer?.phone01, survey.customer?.phone02].filter(Boolean).join(" / ")
-  if (phones)                     custRows.push(infoRow("Τηλέφωνο", phones))
-  if (survey.customer?.email)     custRows.push(infoRow("Email", survey.customer.email))
-  if (survey.customer?.webpage)   custRows.push(infoRow("Ιστοσελίδα", survey.customer.webpage))
-  if (survey.customer?.jobtypetrd) custRows.push(infoRow("Κλάδος Δραστηριότητας", survey.customer.jobtypetrd))
-
-  els.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: custRows }))
-
-  els.push(new Paragraph({
-    children: [new TextRun({ text: "Στοιχεία Έρευνας", bold: true, size: 22, font: FONT, color: "374151" })],
-    spacing: { before: 280, after: 120 },
-  }))
+  // ── PROPOSAL REFERENCE STRIP ───────────────────────────────────────────────
 
   els.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [
-      infoRow("Τίτλος Έρευνας",    survey.name),
-      infoRow("Ημερομηνία",        surveyDate),
-      infoRow("Τεχνικός",          surveyorName),
-      infoRow("Κατάσταση Έρευνας", SURVEY_STATUS_GR[survey.status] ?? survey.status),
-      infoRow("Ενότητες",          sectionKeys.map(k => SECTION_LABELS_GR[SECTION_ENUM_MAP[k]] ?? k).join(", ")),
-      ...(survey.description ? [infoRow("Σημειώσεις", survey.description)] : []),
-    ],
+    rows: [new TableRow({
+      children: [new TableCell({
+        shading: { type: ShadingType.SOLID, color: "1E293B" },
+        borders: noBorders,
+        margins: { top: 80, bottom: 80, left: 200, right: 200 },
+        children: [new Paragraph({
+          children: [
+            new TextRun({ text: "Αριθμός: ", bold: true, size: 18, font: FONT, color: MUTED }),
+            new TextRun({ text: proposal.title, bold: true, size: 18, font: FONT, color: "FFFFFF" }),
+            new TextRun({ text: "        Ημερ/νία: ", bold: true, size: 18, font: FONT, color: MUTED }),
+            new TextRun({ text: surveyDate, bold: true, size: 18, font: FONT, color: "FFFFFF" }),
+            new TextRun({ text: "        Κατάσταση: ", bold: true, size: 18, font: FONT, color: MUTED }),
+            new TextRun({ text: PROPOSAL_STATUS_GR[proposal.status] ?? proposal.status, bold: true, size: 18, font: FONT, color: "FFFFFF" }),
+          ],
+        })],
+      })],
+    })],
+  }))
+
+  // ── CUSTOMER DETAILS (invoice style) ──────────────────────────────────────
+
+  const custRows: TableRow[] = [infoRow("Επωνυμία", customerName)]
+  const custAddr = [survey.customer?.address, survey.customer?.city, survey.customer?.zip].filter(Boolean).join(", ")
+  if (custAddr)                        custRows.push(infoRow("Διεύθυνση", custAddr))
+  const phones = [survey.customer?.phone01, survey.customer?.phone02].filter(Boolean).join(" / ")
+  if (phones)                          custRows.push(infoRow("Τηλ.", phones))
+  if (survey.customer?.afm)            custRows.push(infoRow("Α.Φ.Μ / Δ.Ο.Υ.", survey.customer.afm))
+  if (survey.customer?.email)          custRows.push(infoRow("Email", survey.customer.email))
+  if (survey.customer?.webpage)        custRows.push(infoRow("Ιστοσελίδα", survey.customer.webpage))
+  if (survey.customer?.jobtypetrd)     custRows.push(infoRow("Κλάδος", survey.customer.jobtypetrd))
+  custRows.push(infoRow("Τεχνικός", surveyorName))
+
+  els.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: custRows }))
+
+  // Proposal subject row
+  els.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: [new TableRow({
+      children: [
+        new TableCell({
+          width: { size: 28, type: WidthType.PERCENTAGE },
+          borders: thinBorders,
+          shading: { type: ShadingType.SOLID, color: "F8FAFC" },
+          margins: { top: 80, bottom: 80, left: 140, right: 140 },
+          children: [new Paragraph({ children: [new TextRun({ text: "Θέμα", bold: true, size: 18, font: FONT, color: GRAY })] })],
+        }),
+        new TableCell({
+          width: { size: 72, type: WidthType.PERCENTAGE },
+          borders: thinBorders,
+          margins: { top: 80, bottom: 80, left: 140, right: 140 },
+          children: [new Paragraph({ children: [new TextRun({ text: proposal.title, bold: true, size: 18, font: FONT, color: DARK })] })],
+        }),
+      ],
+    })],
   }))
 
   // ── SECTION 2: EXECUTIVE SUMMARY ──────────────────────────────────────────
 
   if (proposal.description?.trim()) {
-    els.push(...sectionDivider("Εκτελεστική Σύνοψη", "1D4ED8"))
+    els.push(...sectionDivider("Εκτελεστική Σύνοψη", DARK))
     const descParas = htmlToParagraphs(proposal.description, { size: 21, spacing: 160 })
     els.push(...(descParas.length ? descParas : [
-      new Paragraph({ children: [new TextRun({ text: "—", size: 20, font: FONT, color: "9CA3AF", italics: true })] }),
+      new Paragraph({ children: [new TextRun({ text: "—", size: 20, font: FONT, color: MUTED })] }),
     ]))
   }
 
   // ── SECTION 3: TECHNICAL SURVEY FINDINGS ──────────────────────────────────
 
   if (sectionKeys.length && dedupedQ.length) {
-    els.push(...sectionDivider("Τεχνικά Ευρήματα Έρευνας", "0F172A"))
+    els.push(...sectionDivider("Τεχνικά Ευρήματα Έρευνας", DARK))
 
     for (const sectionKey of sectionKeys) {
       const secEnum  = SECTION_ENUM_MAP[sectionKey]
@@ -569,7 +594,7 @@ export async function GET(req: Request, { params }: Params) {
 
       els.push(...subSectionHeader(secLabel, secColor))
 
-      const headerBg = "EEF2FF"
+      const headerBg = "F1F5F9"
       const qaRows: TableRow[] = [
         // Column headers
         new TableRow({
@@ -580,14 +605,14 @@ export async function GET(req: Request, { params }: Params) {
               borders: thinBorders,
               shading: { type: ShadingType.SOLID, color: headerBg },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: "Ερώτηση", bold: true, size: 18, font: FONT, color: "4338CA" })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: "Ερώτηση", bold: true, size: 18, font: FONT, color: DARK })] })],
             }),
             new TableCell({
               width: { size: 45, type: WidthType.PERCENTAGE },
               borders: thinBorders,
               shading: { type: ShadingType.SOLID, color: headerBg },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: "Απάντηση", bold: true, size: 18, font: FONT, color: "4338CA" })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: "Απάντηση", bold: true, size: 18, font: FONT, color: DARK })] })],
             }),
           ],
         }),
@@ -603,8 +628,7 @@ export async function GET(req: Request, { params }: Params) {
               children: [new TextRun({
                 text: line,
                 size: 18, font: FONT,
-                color: answered ? (li === 0 ? "111827" : "374151") : "9CA3AF",
-                italics: !answered,
+                color: answered ? DARK : MUTED,
                 bold: li === 0 && q.type === "DEVICE_LIST" && answered,
               })],
               spacing: { after: li < arr.length - 1 ? 60 : 0 },
@@ -618,7 +642,7 @@ export async function GET(req: Request, { params }: Params) {
                 shading: { type: ShadingType.SOLID, color: rowBg },
                 margins: { top: 80, bottom: 80, left: 120, right: 120 },
                 children: [new Paragraph({
-                  children: [new TextRun({ text: q.label, size: 18, font: FONT, color: "374151" })],
+                  children: [new TextRun({ text: q.label, size: 18, font: FONT, color: GRAY })],
                 })],
               }),
               new TableCell({
@@ -636,7 +660,7 @@ export async function GET(req: Request, { params }: Params) {
     }
   }
 
-  // ── SECTION 4: REQUIREMENTS & PROPOSED SOLUTIONS ──────────────────────────
+  // ── SECTION 4: REQUIREMENTS & PROPOSED SOLUTIONS (card style) ────────────
 
   const grouped: Record<string, typeof requirements> = {}
   for (const r of requirements) {
@@ -646,83 +670,93 @@ export async function GET(req: Request, { params }: Params) {
   const activeSections = SECTION_ORDER.filter(s => grouped[s]?.length)
 
   if (activeSections.length) {
-    els.push(...sectionDivider("Απαιτήσεις Πελάτη & Προτεινόμενες Λύσεις", "1E3A5F"))
+    els.push(...sectionDivider("Απαιτήσεις Πελάτη & Προτεινομενες Λυσεις", DARK))
 
     for (const sec of activeSections) {
       const reqs     = grouped[sec]
       const secLabel = SECTION_LABELS_GR[sec] ?? sec
       const secColor = SECTION_COLORS[sec] ?? "374151"
 
-      els.push(...subSectionHeader(secLabel, secColor))
+      for (const req of reqs) {
+        const responseHtml = responseMap[req.id] ?? ""
 
-      const reqRows: TableRow[] = [
-        // Column headers with section color background
-        new TableRow({
-          tableHeader: true,
-          children: [
-            new TableCell({
-              width: { size: 38, type: WidthType.PERCENTAGE },
-              borders: thinBorders,
-              shading: { type: ShadingType.SOLID, color: secColor },
-              margins: { top: 90, bottom: 90, left: 140, right: 140 },
-              children: [new Paragraph({ children: [new TextRun({ text: "Απαίτηση Πελάτη", bold: true, size: 18, font: FONT, color: "FFFFFF" })] })],
-            }),
-            new TableCell({
-              width: { size: 62, type: WidthType.PERCENTAGE },
-              borders: thinBorders,
-              shading: { type: ShadingType.SOLID, color: secColor },
-              margins: { top: 90, bottom: 90, left: 140, right: 140 },
-              children: [new Paragraph({ children: [new TextRun({ text: "Προτεινόμενη Λύση", bold: true, size: 18, font: FONT, color: "FFFFFF" })] })],
-            }),
-          ],
-        }),
-        // Requirement + response rows
-        ...reqs.map((req, ri) => {
-          const responseHtml = responseMap[req.id] ?? ""
-          const responseParagraphs = htmlToParagraphs(responseHtml, { size: 18, spacing: 80 })
-          const rowBg = ri % 2 === 0 ? "FFFFFF" : "FAFAFA"
-
-          return new TableRow({
+        // ● Section label row (colored dot + label)
+        els.push(new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [new TableRow({
             children: [
-              // Left: requirement
               new TableCell({
-                borders: thinBorders,
-                shading: { type: ShadingType.SOLID, color: rowBg },
-                margins: { top: 100, bottom: 100, left: 140, right: 140 },
-                children: [
-                  new Paragraph({
-                    children: [new TextRun({ text: req.title, bold: true, size: 19, font: FONT, color: "1F2937" })],
-                    spacing: { after: req.description ? 60 : 0 },
-                  }),
-                  ...(req.description ? [new Paragraph({
-                    children: [new TextRun({ text: req.description, size: 17, font: FONT, color: "6B7280", italics: true })],
-                  })] : []),
-                ],
+                width: { size: 3, type: WidthType.PERCENTAGE },
+                borders: noBorders,
+                shading: { type: ShadingType.SOLID, color: secColor },
+                children: [new Paragraph({ text: "" })],
               }),
-              // Right: proposed solution
               new TableCell({
-                borders: thinBorders,
-                shading: { type: ShadingType.SOLID, color: rowBg },
-                margins: { top: 100, bottom: 100, left: 140, right: 140 },
-                children: responseParagraphs.length ? responseParagraphs : [
-                  new Paragraph({
-                    children: [new TextRun({ text: "Δεν έχει οριστεί απάντηση", size: 18, font: FONT, color: "9CA3AF", italics: true })],
-                  }),
-                ],
+                width: { size: 97, type: WidthType.PERCENTAGE },
+                borders: { ...noBorders, bottom: thin("E2E8F0") },
+                margins: { top: 60, bottom: 60, left: 180, right: 180 },
+                children: [new Paragraph({
+                  children: [new TextRun({
+                    text: upperNoTonos(secLabel),
+                    bold: true, size: 19, font: FONT, color: RED,
+                  })],
+                })],
               }),
             ],
-          })
-        }),
-      ]
+          })],
+        }))
 
-      els.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: reqRows }))
+        // Requirement title row (bordered, light bg)
+        els.push(new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [new TableRow({
+            children: [new TableCell({
+              borders: thinBorders,
+              shading: { type: ShadingType.SOLID, color: "F8FAFC" },
+              margins: { top: 100, bottom: 100, left: 180, right: 180 },
+              children: [new Paragraph({
+                children: [new TextRun({
+                  text: req.title,
+                  bold: true, size: 22, font: FONT, color: "1E293B",
+                })],
+              })],
+            })],
+          })],
+        }))
+
+        // Description (if any)
+        if (req.description?.trim()) {
+          els.push(new Paragraph({
+            children: [new TextRun({
+              text: req.description,
+              size: 18, font: FONT, color: GRAY,
+            })],
+            spacing: { before: 100, after: 80 },
+            indent: { left: 200 },
+          }))
+        }
+
+        // Proposed solution
+        const solutionParas = htmlToParagraphs(responseHtml, { size: 19, spacing: 100, indent: 200 })
+        if (solutionParas.length) {
+          els.push(...solutionParas)
+        } else {
+          els.push(new Paragraph({
+            children: [new TextRun({ text: "—", size: 18, font: FONT, color: MUTED })],
+            spacing: { before: 80, after: 0 },
+            indent: { left: 200 },
+          }))
+        }
+
+        els.push(new Paragraph({ text: "", spacing: { before: 160, after: 0 } }))
+      }
     }
   }
 
   // ── SECTION 5: PROJECT TEAM ────────────────────────────────────────────────
 
   if (assigneeRows.length) {
-    els.push(...sectionDivider("Ομάδα Έργου", "374151"))
+    els.push(...sectionDivider("Ομάδα Έργου", DARK))
 
     els.push(new Table({
       width: { size: 55, type: WidthType.PERCENTAGE },
@@ -732,13 +766,13 @@ export async function GET(req: Request, { params }: Params) {
           children: [
             new TableCell({
               borders: thinBorders,
-              shading: { type: ShadingType.SOLID, color: "1E3A5F" },
+              shading: { type: ShadingType.SOLID, color: DARK },
               margins: { top: 80, bottom: 80, left: 140, right: 140 },
               children: [new Paragraph({ children: [new TextRun({ text: "Όνομα", bold: true, size: 18, font: FONT, color: "FFFFFF" })] })],
             }),
             new TableCell({
               borders: thinBorders,
-              shading: { type: ShadingType.SOLID, color: "1E3A5F" },
+              shading: { type: ShadingType.SOLID, color: DARK },
               margins: { top: 80, bottom: 80, left: 140, right: 140 },
               children: [new Paragraph({ children: [new TextRun({ text: "Email", bold: true, size: 18, font: FONT, color: "FFFFFF" })] })],
             }),
@@ -750,7 +784,7 @@ export async function GET(req: Request, { params }: Params) {
               borders: thinBorders,
               shading: { type: ShadingType.SOLID, color: ai % 2 === 0 ? "FFFFFF" : "F8FAFC" },
               margins: { top: 80, bottom: 80, left: 140, right: 140 },
-              children: [new Paragraph({ children: [new TextRun({ text: a.name ?? "—", size: 18, font: FONT, color: "111827" })] })],
+              children: [new Paragraph({ children: [new TextRun({ text: a.name ?? "—", size: 18, font: FONT, color: DARK })] })],
             }),
             new TableCell({
               borders: thinBorders,
@@ -778,8 +812,8 @@ export async function GET(req: Request, { params }: Params) {
           children: [new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [
-              new TextRun({ text: "Το παρόν έγγραφο είναι εμπιστευτικό και απευθύνεται αποκλειστικά στον παραλήπτη.  ", size: 16, font: FONT, color: "9CA3AF", italics: true }),
-              new TextRun({ text: `Εκδόθηκε: ${generatedDate}`, size: 16, font: FONT, color: "9CA3AF" }),
+              new TextRun({ text: "Το παρόν έγγραφο είναι εμπιστευτικό και απευθύνεται αποκλειστικά στον παραλήπτη.  ", size: 16, font: FONT, color: MUTED }),
+              new TextRun({ text: `Εκδόθηκε: ${generatedDate}`, size: 16, font: FONT, color: MUTED }),
             ],
           })],
         })],
@@ -813,10 +847,10 @@ export async function GET(req: Request, { params }: Params) {
             alignment: AlignmentType.CENTER,
             border: { top: { style: BorderStyle.SINGLE, size: 4, color: "E5E7EB", space: 4 } },
             children: [
-              new TextRun({ text: `${proposal.title}  |  `, size: 16, font: FONT, color: "9CA3AF" }),
-              new TextRun({ children: [PageNumber.CURRENT], size: 16, font: FONT, color: "9CA3AF" }),
-              new TextRun({ text: " / ", size: 16, font: FONT, color: "9CA3AF" }),
-              new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, font: FONT, color: "9CA3AF" }),
+              new TextRun({ text: `${proposal.title}  |  `, size: 16, font: FONT, color: MUTED }),
+              new TextRun({ children: [PageNumber.CURRENT], size: 16, font: FONT, color: MUTED }),
+              new TextRun({ text: " / ", size: 16, font: FONT, color: MUTED }),
+              new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, font: FONT, color: MUTED }),
             ],
           })],
         }),
