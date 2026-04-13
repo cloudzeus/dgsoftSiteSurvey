@@ -7,7 +7,7 @@ cmds = ["npm ci"]
 [phases.build]
 cmds = [
   "cd packages/softone-admin-dashboard && npx prisma generate",
-  "npm run build",
+  "npm run build -w softone-admin-dashboard",
   "cp -a packages/softone-admin-dashboard/.next/standalone/. ."
 ]
 
