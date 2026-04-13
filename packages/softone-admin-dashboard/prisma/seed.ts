@@ -1,5 +1,5 @@
 import "dotenv/config"
-import { PrismaClient, MasterCategory, SoftwareType, WebCategory, DigitalToolType, IotTech, SurveySection, QuestionType } from "@prisma/client"
+import { PrismaClient, Prisma, MasterCategory, SoftwareType, WebCategory, DigitalToolType, IotTech, SurveySection, QuestionType } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import { RESOURCE_KEYS } from "../lib/rbac-resources"
 import { builtinPerm } from "../lib/rbac-builtins"
@@ -779,7 +779,7 @@ async function main() {
         type: q.type,
         order: q.order,
         optionsSource: q.optionsSource ?? null,
-        options: q.options ?? null,
+        options: q.options ?? Prisma.JsonNull,
       },
       create: {
         section: q.section,
@@ -788,7 +788,7 @@ async function main() {
         type: q.type,
         order: q.order,
         optionsSource: q.optionsSource ?? null,
-        options: q.options ?? null,
+        options: q.options ?? Prisma.JsonNull,
       },
     })
   }
