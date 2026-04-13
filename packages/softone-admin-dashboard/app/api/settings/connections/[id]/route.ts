@@ -17,16 +17,18 @@ const UpdateSchema = z.object({
   isActive:  z.boolean().optional(),
 })
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await assertApiAccess(_req)
-  const conn = await db.softoneConnection.findUnique({ where: { id: params.id } })
+  const { id } = await params
+  const conn = await db.softoneConnection.findUnique({ where: { id } })
   if (!conn) return NextResponse.json({ error: "Not found" }, { status: 404 })
   const { password: _, ...safe } = conn
   return NextResponse.json(safe)
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await assertApiAccess(req)
+  const { id } = await params
   const body = await req.json()
   const parsed = UpdateSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 })
@@ -44,13 +46,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     updateData.password = password
   }
 
-  const conn = await db.softoneConnection.update({ where: { id: params.id }, data: updateData })
+  const conn = await db.softoneConnection.update({ where: { id }, data: updateData })
   const { password: _, ...safe } = conn
   return NextResponse.json(safe)
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await assertApiAccess(_req)
-  await db.softoneConnection.delete({ where: { id: params.id } })
+  const { id } = await params
+  await db.softoneConnection.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

@@ -3,10 +3,10 @@ import { db } from "@/lib/db"
 import { assertApiAccess } from "@/lib/permissions"
 import { SoftoneAPIClient } from "@softone/sync"
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   await assertApiAccess(_req)
-
-  const conn = await db.softoneConnection.findUnique({ where: { id: params.id } })
+  const { id } = await params
+  const conn = await db.softoneConnection.findUnique({ where: { id } })
   if (!conn) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   try {
