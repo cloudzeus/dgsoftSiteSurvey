@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ChevronRight, Plus, Trash2, Loader2, Check, X,
-  Wifi, WifiOff, Star, Building2, Link2,
+  Wifi, WifiOff, Star, Building2, Link2, Upload, ImageOff,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,38 +188,40 @@ function ConnectionRow({
 
   return (
     <div className={cn("rounded-lg border transition-colors", open ? "border-[var(--ring)]/50 bg-[var(--card)]" : "border-[var(--border)] bg-[var(--card)]")}>
-      {/* Header */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
-      >
-        <ChevronRight className={cn("size-4 text-[var(--muted-foreground)] flex-shrink-0 transition-transform", open && "rotate-90")} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-[var(--foreground)] truncate">
-              {isNew ? "New connection" : conn.label}
-            </span>
-            {conn?.isDefault && <Star className="size-3 text-amber-400 fill-amber-400 flex-shrink-0" />}
-            {conn && !conn.isActive && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">inactive</span>
+      {/* Header — split into toggle area + action buttons to avoid nested <button> */}
+      <div className="flex items-center">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex-1 flex items-center gap-3 px-4 py-3 text-left min-w-0"
+        >
+          <ChevronRight className={cn("size-4 text-[var(--muted-foreground)] flex-shrink-0 transition-transform", open && "rotate-90")} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-[var(--foreground)] truncate">
+                {isNew ? "New connection" : conn.label}
+              </span>
+              {conn?.isDefault && <Star className="size-3 text-amber-400 fill-amber-400 flex-shrink-0" />}
+              {conn && !conn.isActive && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--muted)] text-[var(--muted-foreground)]">inactive</span>
+              )}
+            </div>
+            {conn && (
+              <p className="text-[11px] text-[var(--muted-foreground)] truncate">{conn.baseUrl} · {conn.username}</p>
             )}
           </div>
-          {conn && (
-            <p className="text-[11px] text-[var(--muted-foreground)] truncate">{conn.baseUrl} · {conn.username}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        </button>
+        <div className="flex items-center gap-2 px-3 flex-shrink-0">
           {statusDot}
           {conn && (
             <button
-              onClick={(e) => { e.stopPropagation(); deleteConn() }}
+              onClick={deleteConn}
               className="p-1 rounded text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-colors"
             >
               <Trash2 className="size-3.5" />
             </button>
           )}
         </div>
-      </button>
+      </div>
 
       {/* Form */}
       {open && (
@@ -315,6 +318,10 @@ function ConnectionRow({
 
 function CompanyForm({ initial }: { initial: CompanySettings }) {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [logo, setLogo] = useState<string | null>(initial.companyLogo ?? null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
   const [form, setForm] = useState({
     companyName: initial.companyName ?? "",
     address:     initial.address    ?? "",
@@ -334,6 +341,35 @@ function CompanyForm({ initial }: { initial: CompanySettings }) {
   function set(key: keyof typeof form, val: string) {
     setForm((f) => ({ ...f, [key]: val }))
     setSaved(false)
+  }
+
+  async function uploadLogo(file: File) {
+    setLogoUploading(true); setLogoError(null)
+    try {
+      const fd = new FormData()
+      fd.append("logo", file)
+      const res = await fetch("/api/settings/company/logo", { method: "POST", body: fd })
+      if (!res.ok) {
+        const body = await res.json() as { error?: string }
+        throw new Error(body.error ?? "Upload failed")
+      }
+      const { url } = await res.json() as { url: string }
+      setLogo(url)
+    } catch (e: any) {
+      setLogoError(e.message)
+    } finally {
+      setLogoUploading(false)
+    }
+  }
+
+  async function removeLogo() {
+    setLogoError(null)
+    try {
+      await fetch("/api/settings/company/logo", { method: "DELETE" })
+      setLogo(null)
+    } catch {
+      setLogoError("Failed to remove logo")
+    }
   }
 
   async function save() {
@@ -360,6 +396,51 @@ function CompanyForm({ initial }: { initial: CompanySettings }) {
         title="Company Information"
         description="This data is used in reports, invoices, and the application header."
       />
+
+      {/* Logo upload */}
+      <div>
+        <p className="block text-[11px] font-medium text-[var(--muted-foreground)] mb-2">Company Logo</p>
+        <div className="flex items-center gap-4">
+          <div className="relative size-16 rounded-lg border border-[var(--border)] bg-[var(--muted)] flex items-center justify-center overflow-hidden flex-shrink-0">
+            {logo ? (
+              <Image src={logo} alt="Company logo" fill className="object-contain p-1" unoptimized />
+            ) : (
+              <ImageOff className="size-6 text-[var(--muted-foreground)]" />
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={logoUploading}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--muted)] transition-colors disabled:opacity-50"
+              >
+                {logoUploading ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />}
+                {logo ? "Replace logo" : "Upload logo"}
+              </button>
+              {logo && (
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs hover:text-[var(--destructive)] transition-colors"
+                >
+                  <X className="size-3" /> Remove
+                </button>
+              )}
+            </div>
+            <p className="text-[10px] text-[var(--muted-foreground)]">PNG, JPG, SVG or WebP — max 5 MB</p>
+            {logoError && <p className="text-[10px] text-[var(--destructive)]">{logoError}</p>}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = "" }}
+          />
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
