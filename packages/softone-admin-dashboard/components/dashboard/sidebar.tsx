@@ -37,6 +37,10 @@ import {
   ContactRound,
   HardDriveDownload,
   ClipboardList,
+  Server,
+  AppWindow,
+  Cpu,
+  Wifi,
 } from "lucide-react"
 
 const MENU_ICON_MAP: Record<string, React.ElementType> = {
@@ -89,6 +93,21 @@ const NAV_GROUPS = [
     items: [
       { href: "/site-survey",           label: "All Surveys", icon: ClipboardList },
       { href: "/customers",             label: "Customers",   icon: ContactRound  },
+    ],
+  },
+  {
+    key: "master-options",
+    label: "Master Options",
+    items: [
+      { href: "/master-options/brands",            label: "Brands",            icon: Tag       },
+      { href: "/master-options/asset-types",       label: "Asset Types",       icon: Server    },
+      { href: "/master-options/software-vendors",  label: "Software Vendors",  icon: AppWindow },
+      { href: "/master-options/software-products", label: "Software Products", icon: Layers    },
+      { href: "/master-options/web-platforms",     label: "Web Platforms",     icon: Globe     },
+      { href: "/master-options/digital-tools",     label: "Digital Tools",     icon: BarChart2 },
+      { href: "/master-options/iot-categories",    label: "IoT Categories",    icon: Cpu         },
+      { href: "/master-options/iot-products",      label: "IoT Products",      icon: Wifi        },
+      { href: "/master-options/survey-questions",  label: "Survey Questions",  icon: ListChecks  },
     ],
   },
   {

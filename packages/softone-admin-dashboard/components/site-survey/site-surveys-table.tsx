@@ -8,6 +8,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, Columns3, Check,
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
+  PlayCircle,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils"
 import { useTablePrefs, PAGE_SIZES, type ColDef } from "@/hooks/use-table-prefs"
 import { deleteSiteSurvey, getCustomerBranches } from "@/app/actions/site-survey"
 import { SiteSurveyDialog, type SurveyUser, type SurveyCustomer, type SurveyCustomerOption, type SurveyBranch, type SiteSurveyRow } from "./site-survey-dialog"
+import { SurveyQuestionsWizard } from "./survey-questions-wizard"
 import type { SurveySection, SurveyStatus } from "@/app/actions/site-survey"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -133,6 +135,7 @@ function ExpandedRow({
   const [files,        setFiles]        = useState<SurveyFileRow[] | null>(null)
   const [filesLoading, setFilesLoading] = useState(false)
   const [deletingId,   setDeletingId]   = useState<number | null>(null)
+  const [wizardSection, setWizardSection] = useState<string | null>(null)
 
   function loadFiles() {
     setFilesLoading(true)
@@ -242,17 +245,35 @@ function ExpandedRow({
             {survey.sections.length === 0 ? (
               <p className="text-[12px] py-4" style={{ color: "var(--muted-foreground)" }}>No sections selected.</p>
             ) : survey.sections.map(s => (
-              <div key={s} className="flex items-center gap-3 rounded-xl border border-[var(--border)] px-4 py-3 bg-[var(--muted)]/10">
+              <button
+                key={s}
+                type="button"
+                onClick={e => { e.stopPropagation(); setWizardSection(s) }}
+                className="w-full flex items-center gap-3 rounded-xl border border-[var(--border)] px-4 py-3 bg-[var(--muted)]/10 hover:bg-indigo-500/5 hover:border-indigo-500/30 transition-colors group text-left"
+              >
                 <div className="size-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0 text-indigo-400">
                   {SECTION_ICONS[s]}
                 </div>
-                <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
                   {SECTION_LABELS[s] ?? s}
                 </p>
-              </div>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <PlayCircle className="size-3.5" /> Fill out
+                </span>
+              </button>
             ))}
           </div>
         )}
+
+        {/* ── Questions wizard ── */}
+        <SurveyQuestionsWizard
+          open={wizardSection !== null}
+          onClose={() => setWizardSection(null)}
+          surveyId={survey.id}
+          surveyName={survey.name}
+          sectionKey={wizardSection ?? ""}
+          sectionLabel={SECTION_LABELS[wizardSection ?? ""] ?? wizardSection ?? ""}
+        />
 
         {/* ── Branches tab ── */}
         {tab === "branches" && (

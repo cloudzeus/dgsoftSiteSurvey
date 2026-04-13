@@ -1013,6 +1013,7 @@ model SiteSurvey {
   updatedAt     DateTime @updatedAt
 
   files     File[]
+  results   SurveyResult[]
 
   customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   surveyor  User     @relation(fields: [surveyorId], references: [id])
@@ -1021,4 +1022,180 @@ model SiteSurvey {
   @@index([surveyorId])
   @@index([status])
   @@index([date])
+}
+
+// ─── Survey Question Library (Master Template) ────────────────────────────────
+
+model SurveyQuestion {
+  id            Int           @id @default(autoincrement())
+  section       SurveySection
+  label         String        @db.VarChar(300)
+  key           String        @unique @db.VarChar(100)
+  type          QuestionType
+  // For questions backed by a master table: "<model>:<filter>" e.g. "brand:SECURITY", "software_product:ERP"
+  // Null = use static options JSON below
+  optionsSource String?       @db.VarChar(100)
+  options       Json?         // static fallback options for DROPDOWN / MULTI_SELECT (no master table)
+  order         Int           @default(0)
+  isActive      Boolean       @default(true)
+
+  results SurveyResult[]
+
+  @@index([section])
+  @@index([order])
+}
+
+// ─── Survey Results (Per-survey captured data) ────────────────────────────────
+
+model SurveyResult {
+  id          Int    @id @default(autoincrement())
+  surveyId    Int
+  questionId  Int
+  answerValue String? @db.Text
+
+  survey   SiteSurvey    @relation(fields: [surveyId],   references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([surveyId, questionId])
+  @@index([surveyId])
+  @@index([questionId])
+}
+
+enum SurveySection {
+  SOFTWARE
+  WEB_ECOMMERCE
+  IOT_AI
+  HARDWARE_NETWORK
+}
+
+enum QuestionType {
+  TEXT
+  BOOLEAN
+  NUMBER
+  DROPDOWN
+  MULTI_SELECT
+}
+
+// ─── Master Options ───────────────────────────────────────────────────────────
+
+enum MasterCategory {
+  NETWORKING
+  SECURITY
+  COMPUTING
+  STORAGE
+  IOT
+  POWER
+}
+
+enum SoftwareType {
+  ERP
+  CRM
+  WMS
+  RETAIL
+  MOBILE_SFA
+  E_INVOICING
+  E_COMMERCE
+  HR_PAYROLL
+  BI_ANALYTICS
+  CYBERSECURITY
+  PRODUCTIVITY
+  BACKUP
+  AI_TOOL
+}
+
+model Brand {
+  id       Int            @id @default(autoincrement())
+  name     String         @unique @db.VarChar(120)
+  category MasterCategory
+  isCommon Boolean        @default(true)
+
+  @@index([category])
+}
+
+model AssetType {
+  id       Int            @id @default(autoincrement())
+  name     String         @unique @db.VarChar(120)
+  category MasterCategory
+
+  @@index([category])
+}
+
+model SoftwareVendor {
+  id       Int               @id @default(autoincrement())
+  name     String            @unique @db.VarChar(120)
+  products SoftwareProduct[]
+}
+
+model SoftwareProduct {
+  id       Int            @id @default(autoincrement())
+  name     String         @unique @db.VarChar(160)
+  type     SoftwareType
+  vendorId Int
+
+  vendor   SoftwareVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([type])
+}
+
+// ─── Web & Digital Presence ───────────────────────────────────────────────────
+
+enum WebCategory {
+  CMS
+  ECOMMERCE
+  HEADLESS_CMS
+  LANDING_PAGE_BUILDER
+}
+
+enum DigitalToolType {
+  ANALYTICS
+  SEO_SUITE
+  ADS_PLATFORM
+  HEATMAP_UX
+  MARKETING_AUTOMATION
+}
+
+model WebPlatform {
+  id       Int         @id @default(autoincrement())
+  name     String      @unique @db.VarChar(120)
+  category WebCategory
+  isSaaS   Boolean     @default(true)
+
+  @@index([category])
+}
+
+model DigitalTool {
+  id   Int             @id @default(autoincrement())
+  name String          @unique @db.VarChar(120)
+  type DigitalToolType
+
+  @@index([type])
+}
+
+// ─── IoT & Computer Vision ────────────────────────────────────────────────────
+
+enum IotTech {
+  LORAWAN
+  AI_VISION
+  WIFI_HALOW
+  FIVE_G
+}
+
+model IotCategory {
+  id       Int          @id @default(autoincrement())
+  name     String       @unique @db.VarChar(120)
+  products IotProduct[]
+}
+
+model IotProduct {
+  id          Int         @id @default(autoincrement())
+  modelName   String      @unique @db.VarChar(120)
+  description String?     @db.VarChar(255)
+  technology  IotTech     @default(LORAWAN)
+  categoryId  Int
+
+  category    IotCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([technology])
 }
