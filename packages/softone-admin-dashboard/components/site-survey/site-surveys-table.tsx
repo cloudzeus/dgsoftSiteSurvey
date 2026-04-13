@@ -18,6 +18,7 @@ import { deleteSiteSurvey, getCustomerBranches } from "@/app/actions/site-survey
 import { SiteSurveyDialog, type SurveyUser, type SurveyCustomer, type SurveyCustomerOption, type SurveyBranch, type SiteSurveyRow } from "./site-survey-dialog"
 import { SurveyQuestionsWizard } from "./survey-questions-wizard"
 import { SiteSurveyReportModal } from "./site-survey-report-modal"
+import { SurveyProposalModal } from "./survey-proposal-modal"
 import type { SurveySection, SurveyStatus } from "@/app/actions/site-survey"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ type SurveyFileRow = {
 
 // ─── Expanded row ─────────────────────────────────────────────────────────────
 
-type ExpandedTab = "details" | "sections" | "branches" | "files" | "requirements"
+type ExpandedTab = "details" | "sections" | "branches" | "files" | "requirements" | "proposal"
 
 type ClientRequirementRow = {
   id: number; surveyId: number; section: string; title: string
@@ -137,12 +138,49 @@ type ClientRequirementRow = {
 }
 
 const REQ_SECTION_VALUES = ["SOFTWARE", "WEB_ECOMMERCE", "IOT_AI", "HARDWARE_NETWORK", "COMPLIANCE"] as const
-const REQ_SECTION_LABELS: Record<string, string> = {
-  HARDWARE_NETWORK: "Hardware & Network",
-  SOFTWARE:         "Software",
-  WEB_ECOMMERCE:    "Web & E-commerce",
-  IOT_AI:           "IoT & AI",
-  COMPLIANCE:       "Compliance",
+
+const REQ_SECTION_META: Record<string, {
+  label: string
+  icon: React.ReactNode
+  badge: string   // pill classes
+  border: string  // left-border / card accent
+  iconBg: string
+}> = {
+  HARDWARE_NETWORK: {
+    label:  "Hardware & Network",
+    icon:   <Cpu         className="size-3" />,
+    badge:  "bg-sky-500/10 text-sky-400 border-sky-500/25",
+    border: "border-l-sky-500/50",
+    iconBg: "bg-sky-500/10 border-sky-500/20 text-sky-400",
+  },
+  SOFTWARE: {
+    label:  "Software",
+    icon:   <ClipboardList className="size-3" />,
+    badge:  "bg-violet-500/10 text-violet-400 border-violet-500/25",
+    border: "border-l-violet-500/50",
+    iconBg: "bg-violet-500/10 border-violet-500/20 text-violet-400",
+  },
+  WEB_ECOMMERCE: {
+    label:  "Web & E-commerce",
+    icon:   <Globe       className="size-3" />,
+    badge:  "bg-blue-500/10 text-blue-400 border-blue-500/25",
+    border: "border-l-blue-500/50",
+    iconBg: "bg-blue-500/10 border-blue-500/20 text-blue-400",
+  },
+  IOT_AI: {
+    label:  "IoT & AI",
+    icon:   <Bot         className="size-3" />,
+    badge:  "bg-teal-500/10 text-teal-400 border-teal-500/25",
+    border: "border-l-teal-500/50",
+    iconBg: "bg-teal-500/10 border-teal-500/20 text-teal-400",
+  },
+  COMPLIANCE: {
+    label:  "Compliance",
+    icon:   <ShieldCheck className="size-3" />,
+    badge:  "bg-rose-500/10 text-rose-400 border-rose-500/25",
+    border: "border-l-rose-500/50",
+    iconBg: "bg-rose-500/10 border-rose-500/20 text-rose-400",
+  },
 }
 
 function RequirementsTab({ surveyId }: { surveyId: number }) {
@@ -250,208 +288,310 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
   }, [items])
 
   const totalCount = items?.length ?? 0
+  const activeMeta = REQ_SECTION_META[fSection] ?? REQ_SECTION_META.SOFTWARE
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+
+      {/* ── Loading ── */}
       {loading && (
-        <div className="flex items-center gap-2 py-4 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+        <div className="flex items-center gap-2 py-6 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
           <Loader2 className="size-3.5 animate-spin" /> Loading requirements…
         </div>
       )}
 
+      {/* ── Empty state ── */}
       {!loading && !adding && totalCount === 0 && (
-        <div className="flex items-center gap-2.5 py-4 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-          <ListChecks className="size-3.5 shrink-0" />
-          No client requirements yet.
+        <div className="flex flex-col items-center justify-center gap-3 py-10 rounded-2xl border border-dashed border-[var(--border)]">
+          <div className="size-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <ListChecks className="size-5" />
+          </div>
+          <div className="text-center">
+            <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>No requirements yet</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Add client requirements per section</p>
+          </div>
+          <button
+            onClick={e => { e.stopPropagation(); openAdd() }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-[12px] font-semibold text-white transition-colors"
+          >
+            <Plus className="size-3.5" /> Add requirement
+          </button>
         </div>
       )}
 
-      {/* grouped list */}
-      {!loading && totalCount > 0 && REQ_SECTION_VALUES.filter(s => grouped[s]?.length).map(sec => (
-        <div key={sec} className="space-y-1.5">
-          <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: "var(--muted-foreground)" }}>
-            {REQ_SECTION_LABELS[sec] ?? sec}
-          </p>
-          {grouped[sec].map(r => (
-            <div key={r.id} className="flex items-start gap-3 rounded-xl border border-[var(--border)] px-4 py-3 hover:bg-[var(--muted)]/20 transition-colors group">
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>{r.title}</p>
-                {r.description && (
-                  <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{r.description}</p>
-                )}
-                {r.fileUrl && r.fileName && (
-                  <a
-                    href={r.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
-                  >
-                    <Paperclip className="size-3" />
-                    {r.fileName}
-                    {r.fileSize != null && (
-                      <span className="text-[10px] font-normal" style={{ color: "var(--muted-foreground)" }}>
-                        ({r.fileSize < 1024 * 1024 ? `${(r.fileSize / 1024).toFixed(1)} KB` : `${(r.fileSize / (1024 * 1024)).toFixed(1)} MB`})
-                      </span>
-                    )}
-                  </a>
-                )}
-              </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
-                <button
-                  onClick={e => { e.stopPropagation(); openEdit(r) }}
-                  className="rounded-md p-1.5 hover:bg-[var(--muted)] transition-colors"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  <Pencil className="size-3" />
-                </button>
-                <button
-                  onClick={e => { e.stopPropagation(); handleDelete(r.id, r.fileUrl) }}
-                  disabled={deletingId === r.id}
-                  className="rounded-md p-1.5 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  {deletingId === r.id ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
+      {/* ── Grouped list ── */}
+      {!loading && totalCount > 0 && (
+        <div className="space-y-5">
+          {REQ_SECTION_VALUES.filter(s => grouped[s]?.length).map(sec => {
+            const meta = REQ_SECTION_META[sec]
+            return (
+              <div key={sec}>
+                {/* Section header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={cn("size-5 rounded-md border flex items-center justify-center shrink-0", meta.iconBg)}>
+                    {meta.icon}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--muted-foreground)" }}>
+                    {meta.label}
+                  </span>
+                  <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border tabular-nums", meta.badge)}>
+                    {grouped[sec].length}
+                  </span>
+                </div>
 
-      {/* inline form */}
+                {/* Cards */}
+                <div className="space-y-2 pl-1">
+                  {grouped[sec].map((r, idx) => (
+                    <div
+                      key={r.id}
+                      className={cn(
+                        "group relative flex items-start gap-3 rounded-xl border-l-[3px] border border-[var(--border)] bg-[var(--background)] px-4 py-3 transition-all hover:shadow-sm",
+                        meta.border,
+                      )}
+                    >
+                      {/* Index badge */}
+                      <div className={cn("size-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-black tabular-nums", meta.badge)}>
+                        {idx + 1}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold leading-snug" style={{ color: "var(--foreground)" }}>
+                          {r.title}
+                        </p>
+                        {r.description && (
+                          <p className="text-[12px] mt-1 leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+                            {r.description}
+                          </p>
+                        )}
+                        {r.fileUrl && r.fileName && (
+                          <a
+                            href={r.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="inline-flex items-center gap-1.5 mt-2 px-2 py-1 rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 text-[11px] font-medium hover:bg-[var(--muted)]/60 transition-colors"
+                            style={{ color: "var(--muted-foreground)" }}
+                          >
+                            <Paperclip className="size-3 shrink-0" />
+                            <span className="truncate max-w-[200px]">{r.fileName}</span>
+                            {r.fileSize != null && (
+                              <span className="text-[10px] opacity-60 shrink-0">
+                                {r.fileSize < 1024 * 1024
+                                  ? `${(r.fileSize / 1024).toFixed(0)} KB`
+                                  : `${(r.fileSize / (1024 * 1024)).toFixed(1)} MB`}
+                              </span>
+                            )}
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Actions — visible on hover */}
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          onClick={e => { e.stopPropagation(); openEdit(r) }}
+                          className="rounded-lg p-1.5 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors"
+                          style={{ color: "var(--muted-foreground)" }}
+                          title="Edit"
+                        >
+                          <Pencil className="size-3" />
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); handleDelete(r.id, r.fileUrl) }}
+                          disabled={deletingId === r.id}
+                          className="rounded-lg p-1.5 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+                          style={{ color: "var(--muted-foreground)" }}
+                          title="Delete"
+                        >
+                          {deletingId === r.id
+                            ? <Loader2 className="size-3 animate-spin" />
+                            : <Trash2 className="size-3" />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Inline form ── */}
       {adding && (
         <form
           onSubmit={handleSubmit}
           onClick={e => e.stopPropagation()}
-          className="rounded-xl border border-indigo-500/30 bg-indigo-500/[3%] px-4 py-4 space-y-3"
+          className="rounded-2xl border border-[var(--border)] bg-[var(--background)] overflow-hidden shadow-sm"
         >
-          <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">
-            {editTarget ? "Edit Requirement" : "New Requirement"}
-          </p>
-
-          {/* section */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Section</label>
-            <select
-              value={fSection}
-              onChange={e => setFSection(e.target.value)}
-              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              style={{ color: "var(--foreground)" }}
-            >
-              {REQ_SECTION_VALUES.map(s => (
-                <option key={s} value={s}>{REQ_SECTION_LABELS[s]}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* title */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Title *</label>
-            <input
-              required
-              value={fTitle}
-              onChange={e => setFTitle(e.target.value)}
-              placeholder="Requirement title…"
-              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              style={{ color: "var(--foreground)" }}
-            />
-          </div>
-
-          {/* description */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Description</label>
-              <button
-                type="button"
-                disabled={generating || !fTitle.trim()}
-                onClick={e => { e.stopPropagation(); generateDescription() }}
-                title={!fTitle.trim() ? "Enter a title first" : "Generate description with AI"}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:border-indigo-500/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {generating
-                  ? <Loader2 className="size-3 animate-spin" />
-                  : <Sparkles className="size-3" />}
-                {generating ? "Generating…" : "Generate with AI"}
-              </button>
-            </div>
-            <textarea
-              value={fDesc}
-              onChange={e => setFDesc(e.target.value)}
-              placeholder="Optional description — or use AI to generate one…"
-              rows={3}
-              className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] resize-none focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              style={{ color: "var(--foreground)" }}
-            />
-          </div>
-
-          {/* file */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Attachment</label>
-            {editTarget?.fileUrl && !fFile && (
-              <div className="flex items-center gap-2 mb-1">
-                <a href={editTarget.fileUrl} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300">
-                  <Paperclip className="size-3" />{editTarget.fileName}
-                </a>
-                <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>(replace by choosing a new file)</span>
-              </div>
-            )}
+          {/* Form header — section-coloured */}
+          <div className={cn("flex items-center justify-between px-4 py-3 border-b border-[var(--border)]", activeMeta.iconBg.replace("border", "border-b"))}>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-1.5 text-[11px] font-semibold hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                <Plus className="size-3" />
-                {fFile ? fFile.name : "Choose file"}
-              </button>
-              {fFile && (
-                <button type="button" onClick={e => { e.stopPropagation(); setFFile(null); if (fileInputRef.current) fileInputRef.current.value = "" }}
-                  className="rounded-md p-1 hover:text-rose-400 transition-colors"
-                  style={{ color: "var(--muted-foreground)" }}>
-                  <X className="size-3" />
-                </button>
-              )}
+              <div className={cn("size-6 rounded-lg border flex items-center justify-center", activeMeta.iconBg)}>
+                {activeMeta.icon}
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--foreground)" }}>
+                {editTarget ? "Edit Requirement" : "New Requirement"}
+              </span>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={e => setFFile(e.target.files?.[0] ?? null)}
-            />
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3.5 py-1.5 text-[12px] font-semibold text-white transition-colors"
-            >
-              {saving && <Loader2 className="size-3 animate-spin" />}
-              {editTarget ? "Save changes" : "Add requirement"}
-            </button>
             <button
               type="button"
               onClick={e => { e.stopPropagation(); cancelForm() }}
-              className="inline-flex items-center gap-1 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold border border-[var(--border)] hover:bg-[var(--muted)] transition-colors"
+              className="rounded-lg p-1 hover:bg-[var(--muted)] transition-colors"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+
+          <div className="px-4 py-4 space-y-4">
+            {/* Section picker — visual pills */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Section</label>
+              <div className="flex flex-wrap gap-1.5">
+                {REQ_SECTION_VALUES.map(s => {
+                  const m = REQ_SECTION_META[s]
+                  const active = fSection === s
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setFSection(s) }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all",
+                        active ? m.badge + " shadow-sm scale-[1.03]" : "border-[var(--border)] hover:border-[var(--muted-foreground)]/30",
+                      )}
+                      style={active ? {} : { color: "var(--muted-foreground)" }}
+                    >
+                      {m.icon}{m.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
+                Title <span className="text-rose-400">*</span>
+              </label>
+              <input
+                required
+                value={fTitle}
+                onChange={e => setFTitle(e.target.value)}
+                placeholder="Requirement title…"
+                className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all"
+                style={{ color: "var(--foreground)" }}
+              />
+            </div>
+
+            {/* Description + AI */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Description</label>
+                <button
+                  type="button"
+                  disabled={generating || !fTitle.trim()}
+                  onClick={e => { e.stopPropagation(); generateDescription() }}
+                  title={!fTitle.trim() ? "Enter a title first" : "Generate with AI"}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {generating ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                  {generating ? "Generating…" : "Generate with AI"}
+                </button>
+              </div>
+              <div className="relative">
+                <textarea
+                  value={fDesc}
+                  onChange={e => setFDesc(e.target.value)}
+                  placeholder="Optional description — or use AI to generate one in Greek…"
+                  rows={4}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[12px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all"
+                  style={{ color: "var(--foreground)" }}
+                />
+                {generating && (
+                  <div className="absolute inset-0 rounded-lg bg-[var(--background)]/60 flex items-center justify-center gap-2 text-[11px] text-violet-400 font-semibold backdrop-blur-[1px]">
+                    <Loader2 className="size-3.5 animate-spin" /> Generating description…
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Attachment */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Attachment</label>
+
+              {editTarget?.fileUrl && !fFile && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20">
+                  <Paperclip className="size-3.5 shrink-0 text-indigo-400" />
+                  <a href={editTarget.fileUrl} target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="flex-1 text-[11px] font-medium text-indigo-400 hover:text-indigo-300 truncate">
+                    {editTarget.fileName}
+                  </a>
+                  <span className="text-[10px] shrink-0" style={{ color: "var(--muted-foreground)" }}>Replace below</span>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors",
+                    fFile
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : "border-dashed border-[var(--border)] hover:border-indigo-500/40 hover:bg-indigo-500/5",
+                  )}
+                  style={fFile ? {} : { color: "var(--muted-foreground)" }}
+                >
+                  {fFile ? <Check className="size-3" /> : <Plus className="size-3" />}
+                  {fFile ? fFile.name : "Choose file"}
+                </button>
+                {fFile && (
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setFFile(null); if (fileInputRef.current) fileInputRef.current.value = "" }}
+                    className="rounded-lg p-1.5 hover:bg-rose-500/10 hover:text-rose-400 transition-colors"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
+              </div>
+              <input ref={fileInputRef} type="file" className="hidden" onChange={e => setFFile(e.target.files?.[0] ?? null)} />
+            </div>
+          </div>
+
+          {/* Form footer */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--muted)]/10">
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); cancelForm() }}
+              className="text-[12px] font-semibold transition-colors hover:opacity-70"
               style={{ color: "var(--muted-foreground)" }}
             >
               Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-1.5 text-[12px] font-semibold text-white transition-colors"
+            >
+              {saving && <Loader2 className="size-3 animate-spin" />}
+              {editTarget ? "Save changes" : "Add requirement"}
             </button>
           </div>
         </form>
       )}
 
-      {!adding && (
+      {/* ── Add button (when list is visible) ── */}
+      {!adding && totalCount > 0 && (
         <button
           onClick={e => { e.stopPropagation(); openAdd() }}
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold border border-dashed border-[var(--border)] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
           style={{ color: "var(--muted-foreground)" }}
         >
-          <Plus className="size-3" />
-          Add requirement
+          <Plus className="size-3" /> Add requirement
         </button>
       )}
     </div>
@@ -463,11 +603,13 @@ function ExpandedRow({
   colSpan,
   filesRefreshKey,
   onUploadFiles,
+  onOpenProposal,
 }: {
   survey: SurveyTableRow
   colSpan: number
   filesRefreshKey: number
   onUploadFiles: () => void
+  onOpenProposal: () => void
 }) {
   const [tab,          setTab]          = useState<ExpandedTab>("details")
   const [files,        setFiles]        = useState<SurveyFileRow[] | null>(null)
@@ -547,12 +689,13 @@ function ExpandedRow({
       <td colSpan={colSpan - 2} className="py-4 pr-6">
         {/* Tabs */}
         <div className="flex items-center gap-0.5 mb-4 border-b border-[var(--border)]">
-          {(["details", "sections", "branches", "files", "requirements"] as const).map(t => {
+          {(["details", "sections", "branches", "files", "requirements", "proposal"] as const).map(t => {
             const label =
               t === "details"      ? "Details"
               : t === "sections"   ? `Sections (${survey.sections.length})`
               : t === "branches"   ? `Branches (${survey.branchIds.length})`
               : t === "files"      ? `Files${files ? ` (${files.length})` : ""}`
+              : t === "proposal"   ? "Proposal"
               : "Requirements"
             return (
               <button
@@ -567,6 +710,7 @@ function ExpandedRow({
                 {t === "branches"     && <Building2    className="size-3" />}
                 {t === "files"        && <Paperclip    className="size-3" />}
                 {t === "requirements" && <ListChecks   className="size-3" />}
+                {t === "proposal"     && <FileText     className="size-3" />}
                 {label}
                 {tab === t && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-indigo-500" />}
               </button>
@@ -778,6 +922,25 @@ function ExpandedRow({
             <RequirementsTab surveyId={survey.id} />
           </div>
         )}
+
+        {/* ── Proposal tab ── */}
+        {tab === "proposal" && (
+          <div className="flex flex-col items-center justify-center gap-3 py-10" onClick={e => e.stopPropagation()}>
+            <div className="size-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <FileText className="size-5" />
+            </div>
+            <div className="text-center">
+              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>Proposal</p>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Create or edit the proposal for this survey</p>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); onOpenProposal() }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-[12px] font-semibold text-white transition-colors"
+            >
+              <FileText className="size-3.5" /> Open Proposal
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   )
@@ -819,6 +982,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
   const [surveyCustomer,   setSurveyCustomer]   = useState<SurveyCustomer | null>(null)
   const [fileUploadSurvey, setFileUploadSurvey] = useState<SurveyTableRow | null>(null)
   const [reportSurvey,     setReportSurvey]     = useState<SurveyTableRow | null>(null)
+  const [proposalSurvey,   setProposalSurvey]   = useState<SurveyTableRow | null>(null)
   // Incremented after each upload to signal ExpandedRow to reload files
   const [filesRefreshKeys, setFilesRefreshKeys] = useState<Record<number, number>>({})
 
@@ -1193,6 +1357,12 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                                 <FileBarChart2 className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> View Report
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
+                                onSelect={() => setProposalSurvey(s)}
+                                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
+                              >
+                                <FileText className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Proposal
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Item
                                 onSelect={() => { setFileUploadSurvey(s); setExpandedId(s.id) }}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
@@ -1218,6 +1388,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                         colSpan={COL_COUNT}
                         filesRefreshKey={filesRefreshKeys[s.id] ?? 0}
                         onUploadFiles={() => setFileUploadSurvey(s)}
+                        onOpenProposal={() => setProposalSurvey(s)}
                       />
                     )}
                   </React.Fragment>
@@ -1280,6 +1451,15 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           open={!!reportSurvey}
           onClose={() => setReportSurvey(null)}
           survey={reportSurvey}
+        />
+      )}
+
+      {proposalSurvey && (
+        <SurveyProposalModal
+          open={!!proposalSurvey}
+          onClose={() => setProposalSurvey(null)}
+          survey={proposalSurvey}
+          users={users}
         />
       )}
 

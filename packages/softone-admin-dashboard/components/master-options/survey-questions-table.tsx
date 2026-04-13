@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useTransition, useMemo } from "react"
+import { useState, useTransition, useMemo, useEffect } from "react"
+import { createPortal } from "react-dom"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import * as Checkbox from "@radix-ui/react-checkbox"
 import {
@@ -367,6 +368,13 @@ function AddDialog({ onSuccess }: { onSuccess: (q: SurveyQuestionRow) => void })
   function patch(p: Partial<FormState>) { setForm(prev => ({ ...prev, ...p })); setError("") }
   function close() { setOpen(false); setForm(blankForm()); setError("") }
 
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close() }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [open])
+
   function submit() {
     start(async () => {
       const res = await createSurveyQuestion({
@@ -387,24 +395,49 @@ function AddDialog({ onSuccess }: { onSuccess: (q: SurveyQuestionRow) => void })
         <Plus className="size-3.5 mr-1" />Add question
       </Btn>
 
-      {open && (
-        <div className="fixed inset-0 flex items-start justify-center p-4 pt-16 overflow-y-auto"
-          style={{ background: "rgba(0,0,0,0.45)", zIndex: 200 }}>
-          <div className="modal-card w-full max-w-lg space-y-5 my-auto">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Add question</h2>
-              <button onClick={close} className="p-1 rounded-md"
-                style={{ color: "var(--foreground-muted)" }}><X className="size-4" /></button>
+      {open && createPortal(
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.55)", zIndex: 9999 }}
+          onMouseDown={e => { if (e.target === e.currentTarget) close() }}>
+          <div
+            className="w-full max-w-lg flex flex-col"
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.2)",
+              borderRadius: "var(--radius-xl)",
+              padding: 24,
+              maxHeight: "min(680px, calc(100vh - 48px))",
+            }}>
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 flex-shrink-0">
+              <div>
+                <h2 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Add question</h2>
+                <p className="text-[12px] mt-0.5" style={{ color: "var(--foreground-muted)" }}>Fill in the details below and click Create.</p>
+              </div>
+              <button onClick={close}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: "var(--foreground-muted)" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "var(--muted)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                <X className="size-4" />
+              </button>
             </div>
 
-            <QuestionForm form={form} error={error} onChange={patch} />
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1 min-h-0">
+              <QuestionForm form={form} error={error} onChange={patch} />
+            </div>
 
-            <div className="flex gap-2 justify-end pt-1">
+            {/* Footer */}
+            <div className="flex gap-2 justify-end pt-4 flex-shrink-0 border-t border-[var(--border)] mt-4">
               <Btn variant="secondary" size="sm" onClick={close}>Cancel</Btn>
               <Btn variant="primary" size="sm" loading={pending} onClick={submit}>Create</Btn>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
@@ -423,6 +456,12 @@ function EditDialog({ question, onSuccess, onClose }: {
 
   function patch(p: Partial<FormState>) { setForm(prev => ({ ...prev, ...p })); setError("") }
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [onClose])
+
   function submit() {
     start(async () => {
       const res = await updateSurveyQuestion(question.id, {
@@ -437,24 +476,51 @@ function EditDialog({ question, onSuccess, onClose }: {
     })
   }
 
-  return (
-    <div className="fixed inset-0 flex items-start justify-center p-4 pt-16 overflow-y-auto"
-      style={{ background: "rgba(0,0,0,0.45)", zIndex: 200 }}>
-      <div className="modal-card w-full max-w-lg space-y-5 my-auto">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Edit question</h2>
-          <button onClick={onClose} className="p-1 rounded-md"
-            style={{ color: "var(--foreground-muted)" }}><X className="size-4" /></button>
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", zIndex: 9999 }}
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div
+        className="w-full max-w-lg flex flex-col"
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.2)",
+          borderRadius: "var(--radius-xl)",
+          padding: 24,
+          maxHeight: "min(680px, calc(100vh - 48px))",
+        }}>
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 flex-shrink-0">
+          <div>
+            <h2 className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Edit question</h2>
+            <p className="text-[12px] mt-0.5" style={{ color: "var(--foreground-muted)" }}>
+              Editing <span className="font-mono" style={{ color: "var(--primary)" }}>{question.key}</span>
+            </p>
+          </div>
+          <button onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--foreground-muted)" }}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--muted)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+            <X className="size-4" />
+          </button>
         </div>
 
-        <QuestionForm form={form} error={error} onChange={patch} />
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <QuestionForm form={form} error={error} onChange={patch} />
+        </div>
 
-        <div className="flex gap-2 justify-end pt-1">
+        {/* Footer */}
+        <div className="flex gap-2 justify-end pt-4 flex-shrink-0 border-t border-[var(--border)] mt-4">
           <Btn variant="secondary" size="sm" onClick={onClose}>Cancel</Btn>
-          <Btn variant="primary" size="sm" loading={pending} onClick={submit}>Save</Btn>
+          <Btn variant="primary" size="sm" loading={pending} onClick={submit}>Save changes</Btn>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -475,7 +541,7 @@ function ColumnPicker({ visibleCols, onToggle }: {
       <DropdownMenu.Portal>
         <DropdownMenu.Content align="end" sideOffset={4}
           style={{ background: "var(--surface)", border: "1px solid var(--border)",
-            borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", padding: 6, minWidth: 160, zIndex: 100 }}>
+            borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", padding: 6, minWidth: 160, zIndex: 400 }}>
           {COLUMNS.filter(c => !c.alwaysVisible).map(col => (
             <DropdownMenu.Item key={col.key}
               onSelect={e => { e.preventDefault(); onToggle(col.key) }}
@@ -761,7 +827,7 @@ export function SurveyQuestionsTable({ initialQuestions }: { initialQuestions: S
                           <DropdownMenu.Content align="end" sideOffset={4}
                             style={{ background: "var(--surface)", border: "1px solid var(--border)",
                               borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)",
-                              padding: 6, minWidth: 140, zIndex: 100 }}>
+                              padding: 6, minWidth: 140, zIndex: 400 }}>
                             <DropdownMenu.Item
                               onSelect={() => setEditing(q)}
                               className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] cursor-pointer select-none outline-none"

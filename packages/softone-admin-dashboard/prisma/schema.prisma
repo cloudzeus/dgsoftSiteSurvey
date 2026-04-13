@@ -932,9 +932,10 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts    Account[]
-  sessions    Session[]
-  siteSurveys SiteSurvey[]
+  accounts             Account[]
+  sessions             Session[]
+  siteSurveys          SiteSurvey[]
+  proposalAssignments  ProposalAssignee[]
 }
 
 model Account {
@@ -1012,9 +1013,10 @@ model SiteSurvey {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  files            File[]
-  results          SurveyResult[]
+  files             File[]
+  results           SurveyResult[]
   clientRequirements ClientRequirement[]
+  proposal          SurveyProposal?
 
   customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   surveyor  User     @relation(fields: [surveyorId], references: [id])
@@ -1078,10 +1080,60 @@ model ClientRequirement {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  survey SiteSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  survey            SiteSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  proposalResponses ProposalRequirementResponse[]
 
   @@index([surveyId])
   @@index([section])
+}
+
+// ─── Survey Proposals ─────────────────────────────────────────────────────────
+
+model SurveyProposal {
+  id          Int      @id @default(autoincrement())
+  surveyId    Int      @unique
+  title       String   @db.VarChar(300)
+  description String?  @db.LongText
+  status      String   @default("DRAFT") // DRAFT | SENT | ACCEPTED | REJECTED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  survey    SiteSurvey                   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  responses ProposalRequirementResponse[]
+  assignees ProposalAssignee[]
+
+  @@index([surveyId])
+}
+
+model ProposalRequirementResponse {
+  id            Int      @id @default(autoincrement())
+  proposalId    Int
+  requirementId Int
+  response      String?  @db.LongText
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  proposal    SurveyProposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  requirement ClientRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, requirementId])
+  @@index([proposalId])
+  @@index([requirementId])
+}
+
+model ProposalAssignee {
+  id         Int      @id @default(autoincrement())
+  proposalId Int
+  userId     String
+  createdAt  DateTime @default(now())
+
+  proposal SurveyProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId])
+  @@index([proposalId])
 }
 
 enum SurveySection {
