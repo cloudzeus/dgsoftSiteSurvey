@@ -1,0 +1,39 @@
+{
+  "name": "@softone/sync",
+  "version": "1.0.0",
+  "description": "Core Softone ERP sync library — API client, job processor, conflict resolution",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint lib --ext .ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "axios": "^1.7.0",
+    "date-fns": "^4.0.0",
+    "dotenv": "^16.6.1",
+    "exceljs": "^4.4.0",
+    "iconv-lite": "^0.7.2",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prisma": "^6.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.4"
+  },
+  "peerDependencies": {
+    "@prisma/client": "^6.0.0"
+  }
+}

@@ -1,0 +1,1024 @@
+// Integration Hub — Prisma Schema (MySQL 8)
+// Run: npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Connections ──────────────────────────────────────────────────────────────
+// One row per external system (Softone, Shopify, Magento, etc.)
+
+model Connection {
+  id           String    @id @default(cuid())
+  name         String
+  type         String    // SOFTONE | SHOPIFY | MAGENTO | WOOCOMMERCE | CUSTOM_REST
+  baseUrl      String?
+  credentials  Json      // system-specific config; shape varies by type
+  isActive     Boolean   @default(true)
+  lastTestedAt DateTime?
+  lastTestOk   Boolean?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bindings SystemBinding[]
+  webhooks WebhookEndpoint[]
+  mappingTablesAsSource MappingTable[]      @relation("MappingTableSource")
+  mappingTablesAsTarget MappingTable[]      @relation("MappingTableTarget")
+  identityMapsAsSource  RecordIdentityMap[] @relation("RecordIdentityMapSource")
+  identityMapsAsTarget  RecordIdentityMap[] @relation("RecordIdentityMapTarget")
+
+  @@index([type])
+  @@index([isActive])
+}
+
+// ─── Pipeline Entity ─────────────────────────────────────────────────────────
+// The canonical "middle table" definition. Not a MySQL table itself —
+// canonical data is stored as JSON in PipelineRecord.
+
+model PipelineEntity {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique // url-safe, e.g. "orders"
+  description String?
+  isActive    Boolean  @default(true)
+  showInMenu  Boolean  @default(false)
+  menuLabel   String?
+  menuIcon    String?  @default("Database")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fields        PipelineField[]
+  bindings      SystemBinding[]
+  records       PipelineRecord[]
+  jobs          PipelineJob[]
+  identityMaps   RecordIdentityMap[]
+  xmlMappings    XmlFeedEntityMapping[]
+  processingLock ProcessingLock?
+
+  @@index([isActive])
+}
+
+// Canonical fields — define the shape of PipelineRecord.canonicalData
+model PipelineField {
+  id           String   @id @default(cuid())
+  entityId     String
+  name         String   // snake_case canonical name
+  label        String?
+  dataType     String   // character | numeric | datetime | logical
+  isPrimaryKey Boolean  @default(false)
+  isRequired   Boolean  @default(false)
+  sortOrder    Int      @default(0)
+
+  entity   PipelineEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  mappings FieldMapping[]
+
+  @@unique([entityId, name])
+}
+
+// ─── System Binding ───────────────────────────────────────────────────────────
+// Links a Connection's object/resource to a PipelineEntity.
+// INBOUND = data flows in (webhook/pull from this system)
+// OUTBOUND = we push data out to this system
+
+model SystemBinding {
+  id           String   @id @default(cuid())
+  entityId     String
+  connectionId String
+  name         String?  // friendly label, e.g. "Shopify Orders In"
+  direction    String   // INBOUND | OUTBOUND | BOTH
+  objectName   String   // e.g. "FINDOC", "orders", "products"
+  tableName    String?  // sub-table within an object (Softone)
+  resourcePath String?  // REST path for non-Softone: /orders.json
+  filterClause     String?  @db.Text
+  payloadTemplate  Json?    // outbound JSON template; {{field_name}} replaced with canonical values
+  outboundMethod   String?  // "setData" for Softone, "POST"/"PUT" for REST APIs
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  entity     PipelineEntity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  connection Connection      @relation(fields: [connectionId], references: [id])
+  fieldMaps  FieldMapping[]
+  webhooks   WebhookEndpoint[]
+  deliveries RecordDelivery[]
+
+  @@index([entityId, direction])
+  @@index([connectionId])
+}
+
+// ─── Field Mapping ────────────────────────────────────────────────────────────
+// Maps an external system's field ↔ canonical PipelineField.
+
+model FieldMapping {
+  id               String @id @default(cuid())
+  bindingId        String
+  canonicalFieldId String
+  externalField    String // field name in the external system
+  transformation   String? @db.Text // optional expression / template
+
+  binding        SystemBinding @relation(fields: [bindingId], references: [id], onDelete: Cascade)
+  canonicalField PipelineField @relation(fields: [canonicalFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([bindingId, externalField])
+}
+
+// ─── Webhook Endpoints ────────────────────────────────────────────────────────
+// Auto-generated inbound URL: POST /api/webhook/{secret}
+
+model WebhookEndpoint {
+  id             String    @id @default(cuid())
+  bindingId      String
+  connectionId   String
+  secret         String    @unique // also serves as the URL path token
+  description    String?
+  isActive       Boolean   @default(true)
+  lastReceivedAt DateTime?
+  totalReceived  Int       @default(0)
+  createdAt      DateTime  @default(now())
+
+  binding    SystemBinding @relation(fields: [bindingId], references: [id], onDelete: Cascade)
+  connection Connection    @relation(fields: [connectionId], references: [id])
+
+  @@index([secret])
+}
+
+// ─── Pipeline Records ─────────────────────────────────────────────────────────
+// The canonical middle-table row. One per inbound event/record.
+
+model PipelineRecord {
+  id             String    @id @default(cuid())
+  entityId       String
+  canonicalData  Json      // mapped to the canonical schema
+  rawData        Json?     // original payload as received
+  sourceSystem   String    // connection.name
+  sourceRecordId String?   // original ID in source
+  status         String    @default("PENDING") // PENDING | PROCESSING | COMPLETED | PARTIAL | FAILED | DEAD
+  retryCount     Int       @default(0)
+  maxRetries     Int       @default(3)
+  errorMessage   String?   @db.Text
+  receivedAt     DateTime  @default(now())
+  processedAt    DateTime?
+
+  entity     PipelineEntity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  deliveries RecordDelivery[]
+
+  @@index([entityId, status])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([sourceRecordId])
+}
+
+// ─── Record Delivery ─────────────────────────────────────────────────────────
+// One row per outbound target per PipelineRecord.
+// Tracks whether delivery to each system succeeded or failed.
+
+model RecordDelivery {
+  id           String    @id @default(cuid())
+  recordId     String
+  bindingId    String
+  status       String    @default("PENDING") // PENDING | DELIVERING | DELIVERED | FAILED | DEAD
+  attempt      Int       @default(0)
+  externalId   String?   // ID returned by the target system
+  responseData Json?
+  errorMessage String?   @db.Text
+  deliveredAt  DateTime?
+  nextRetryAt  DateTime?
+
+  record  PipelineRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  binding SystemBinding  @relation(fields: [bindingId], references: [id])
+
+  @@index([recordId])
+  @@index([status, nextRetryAt])
+  @@index([bindingId])
+}
+
+// ─── Pipeline Jobs ────────────────────────────────────────────────────────────
+// Execution log for pull runs and processing batches.
+
+model PipelineJob {
+  id           String    @id @default(cuid())
+  entityId     String
+  bindingId    String?   // null = all outbound bindings
+  trigger      String    // WEBHOOK | SCHEDULE | MANUAL | PULL
+  status       String    @default("RUNNING") // RUNNING | COMPLETED | FAILED
+  processed    Int       @default(0)
+  succeeded    Int       @default(0)
+  failed       Int       @default(0)
+  errorMessage String?   @db.Text
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  entity PipelineEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+  @@index([status])
+  @@index([startedAt])
+}
+
+// ─── Mapping Tables ───────────────────────────────────────────────────────────
+// Named value-translation dictionaries between any two systems.
+// e.g. "countries": Magento "GR" → Softone "EL"
+// Reference in FieldMapping.transformation as @map:countries
+
+model MappingTable {
+  id                 String   @id @default(cuid())
+  name               String   @unique  // slug used in @map: references
+  description        String?
+  sourceConnectionId String?  // which system is the "from" side (null = any)
+  targetConnectionId String?  // which system is the "to" side  (null = any)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  entries          MappingEntry[]
+  sourceConnection Connection?   @relation("MappingTableSource", fields: [sourceConnectionId], references: [id], onDelete: SetNull)
+  targetConnection Connection?   @relation("MappingTableTarget", fields: [targetConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([sourceConnectionId])
+  @@index([targetConnectionId])
+}
+
+model MappingEntry {
+  id          String  @id @default(cuid())
+  tableId     String
+  sourceValue String  // value in source system (or canonical)
+  targetValue String  // value in target system (or canonical)
+  label       String? // human label e.g. "Greece"
+
+  table MappingTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, sourceValue])
+  @@index([tableId])
+}
+
+// ─── Record Identity Map ──────────────────────────────────────────────────────
+// Cross-system unique identifier bridge.
+// e.g. Magento SKU "ABC-123" ↔ Softone MTRL code "0001234"
+
+model RecordIdentityMap {
+  id                 String   @id @default(cuid())
+  entityId           String?  // optional: scope to a pipeline entity
+  sourceConnectionId String
+  targetConnectionId String
+  sourceField        String   // field name in source system, e.g. "sku"
+  targetField        String   // field name in target system, e.g. "CODE"
+  sourceValue        String
+  targetValue        String
+  notes              String?
+  createdAt          DateTime @default(now())
+
+  entity           PipelineEntity? @relation(fields: [entityId],           references: [id], onDelete: SetNull)
+  sourceConnection Connection      @relation("RecordIdentityMapSource",    fields: [sourceConnectionId], references: [id])
+  targetConnection Connection      @relation("RecordIdentityMapTarget",    fields: [targetConnectionId], references: [id])
+
+  @@unique([sourceConnectionId, targetConnectionId, sourceField, sourceValue])
+  @@index([sourceConnectionId, sourceValue])
+  @@index([targetConnectionId, targetValue])
+}
+
+// ─── Softone Sync ─────────────────────────────────────────────────────────────
+
+model SyncConfig {
+  id               String    @id @default(cuid())
+  objectName       String
+  tableName        String
+  usageType        String    @default("PERSISTENT")   // PERSISTENT | REFERENCE
+  isActive         Boolean   @default(true)
+  syncDirection    String    @default("READ")          // READ | WRITE | BIDIRECTIONAL
+  batchSize        Int       @default(100)
+  syncSchedule     String    @default("0 */6 * * *")
+  conflictStrategy String    @default("SOFTONE_WINS")  // SOFTONE_WINS | LOCAL_WINS | MANUAL_REVIEW
+  filterClause     String?   @db.Text
+  showInMenu       Boolean   @default(false)
+  menuLabel        String?
+  menuIcon         String?
+  lastSyncedAt     DateTime?
+  createdBy        String    @default("")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  fieldMappings SyncFieldMapping[]
+  syncJobs      SyncJob[]
+  cronJobLock   CronJobLock?
+
+  @@unique([objectName, tableName])
+  @@index([isActive])
+}
+
+model SyncFieldMapping {
+  id               String  @id @default(cuid())
+  syncConfigId     String
+  softoneFieldName String
+  localColumnName  String
+  dataType         String  // character | numeric | datetime | logical
+  isPrimaryKey     Boolean @default(false)
+  isTimestamp      Boolean @default(false)
+  isSyncable       Boolean @default(true)
+  isCustom         Boolean @default(false)
+  transformation   String? @db.Text
+  relatedConfigId  String?
+  relatedLabelField String?
+  relatedValueField String?
+
+  syncConfig SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([syncConfigId, softoneFieldName])
+}
+
+model SyncJob {
+  id                String    @id @default(cuid())
+  syncConfigId      String
+  status            String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | FAILED | PARTIAL_FAILURE
+  operation         String    // FETCH | CREATE | UPDATE | DELETE
+  totalRecords      Int       @default(0)
+  recordsProcessed  Int       @default(0)
+  recordsSuccessful Int       @default(0)
+  recordsFailed     Int       @default(0)
+  errorMessage      String?   @db.Text
+  errorStack        String?   @db.LongText
+  lastAttempt       DateTime  @default(now())
+  retryCount        Int       @default(0)
+  maxRetries        Int       @default(3)
+  checkpointData    String?   @db.Text
+  processedRecords  String?   @db.LongText
+  deadLetterReason  String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+
+  syncConfig SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([syncConfigId, status])
+  @@index([createdAt])
+}
+
+model CronJobLock {
+  id               String    @id @default(cuid())
+  syncConfigId     String    @unique
+  isRunning        Boolean   @default(false)
+  lockAcquiredAt   DateTime?
+  lockExpiresAt    DateTime?
+  lastCompletedAt  DateTime?
+  nextScheduledRun DateTime?
+
+  syncConfig SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+
+  @@index([isRunning])
+}
+
+// ─── Sync Audit / DLQ / Data Files / Rate Limiting ───────────────────────────
+
+model SyncAudit {
+  id           String   @id @default(cuid())
+  syncJobId    String
+  syncConfigId String
+  action       String   // FETCH | UPSERT | DELETE
+  recordId     String?
+  softoneData  String?  @db.LongText
+  localData    String?  @db.LongText
+  executedBy   String   @default("system")
+  createdAt    DateTime @default(now())
+
+  @@index([syncJobId])
+  @@index([syncConfigId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SyncJobDLQ {
+  id                   String    @id @default(cuid())
+  originalJobId        String
+  syncConfigId         String
+  operation            String
+  recordData           String?   @db.LongText
+  errorReason          String    @db.Text
+  severity             String    @default("ERROR") // WARNING | ERROR | CRITICAL
+  requiresManualReview Boolean   @default(true)
+  reviewedBy           String?
+  resolvedAt           DateTime?
+  resolveNote          String?   @db.Text
+  createdAt            DateTime  @default(now())
+
+  @@index([syncConfigId])
+  @@index([requiresManualReview])
+  @@index([severity])
+  @@index([createdAt])
+}
+
+model SyncDataFile {
+  id             String    @id @default(cuid())
+  syncConfigId   String
+  fileName       String
+  fileType       String    @default("JSON")
+  fileSize       Int
+  bunnyUrl       String    @db.Text
+  bunnyPath      String    @db.Text
+  checksumSHA256 String?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([syncConfigId])
+  @@index([expiresAt])
+}
+
+model RateLimitTracker {
+  id                 String    @id @default(cuid())
+  connectionId       String    @unique
+  requestsThisMinute Int       @default(0)
+  requestsThisHour   Int       @default(0)
+  lastResetMinute    DateTime  @default(now())
+  lastResetHour      DateTime  @default(now())
+  isThrottled        Boolean   @default(false)
+  throttleUntil      DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@index([connectionId])
+}
+
+// ─── Softone Connection ───────────────────────────────────────────────────────
+// Stores Softone ERP credentials in the DB — never in env vars.
+
+model SoftoneConnection {
+  id              String    @id @default(cuid())
+  label           String?
+  name            String
+  baseUrl         String    // e.g. https://dgsoft.oncloud.gr
+  username        String
+  password        String
+  appId           String
+  company         String    @default("")
+  branch          String    @default("")
+  module          String    @default("")
+  refId           String    @default("")
+  sessionTtlHours Int       @default(8)
+  isDefault       Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  lastTestedAt    DateTime?
+  lastTestOk      Boolean?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([isDefault])
+}
+
+// ─── Softone Metadata Cache ───────────────────────────────────────────────────
+
+model SoftoneMetadata {
+  id         String   @id @default(cuid())
+  objectName String   @unique
+  metadata   String   @db.LongText // JSON: tables, description, etc.
+  cachedAt   DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([expiresAt])
+}
+
+model SoftoneTableSchema {
+  id         String   @id @default(cuid())
+  objectName String
+  tableName  String
+  fields     String   @db.LongText // JSON array of field definitions
+  primaryKey String
+  cachedAt   DateTime @default(now())
+  expiresAt  DateTime
+
+  @@unique([objectName, tableName])
+  @@index([objectName])
+  @@index([expiresAt])
+}
+
+// ─── Metadata Cache ───────────────────────────────────────────────────────────
+// Caches schema discovery results (objects, tables, fields) per connection.
+
+model MetadataCache {
+  id           String   @id @default(cuid())
+  connectionId String
+  cacheKey     String   // e.g. "objects" | "tables:FINDOC" | "fields:FINDOC:HEADER"
+  data         Json
+  cachedAt     DateTime @default(now())
+  expiresAt    DateTime
+
+  @@unique([connectionId, cacheKey])
+  @@index([expiresAt])
+}
+
+// ─── Processing Lock ──────────────────────────────────────────────────────────
+// Prevents concurrent processing runs for the same entity.
+
+model ProcessingLock {
+  id             String    @id @default(cuid())
+  entityId       String    @unique
+  isRunning      Boolean   @default(false)
+  lockAcquiredAt DateTime?
+  lockExpiresAt  DateTime?
+  lastCompletedAt DateTime?
+
+  entity PipelineEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([isRunning])
+}
+
+// ─── RBAC ─────────────────────────────────────────────────────────────────────
+
+model RolePermission {
+  id        String   @id @default(cuid())
+  role      String   // ADMIN | OPERATOR | VIEWER
+  resource  String   // e.g. "connections" | "entities" | "records" | "jobs"
+  canRead   Boolean  @default(false)
+  canAdd    Boolean  @default(false)
+  canEdit   Boolean  @default(false)
+  canDelete Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, resource])
+  @@index([role])
+}
+
+// ─── App / Company Settings ───────────────────────────────────────────────────
+
+model AppSettings {
+  id          String   @id @default("singleton")
+  companyName String   @default("")
+  companyLogo String?  @db.Text
+  address     String?
+  city        String?
+  zip         String?
+  country     String?
+  phone       String?
+  email       String?
+  website     String?
+  taxId       String?
+  taxOffice   String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Excel Import ─────────────────────────────────────────────────────────────
+
+model ImportJob {
+  id             String   @id @default(cuid())
+  name           String
+  fileName       String
+  connectionId   String?
+  connectionType String   @default("MANUAL")
+  targetObject   String   @default("")
+  sheetName      String   @default("")
+  headerRow      Int      @default(1)
+  columnMappings Json     // ColumnMapping[]
+  status         String   @default("DRAFT") // DRAFT | RUNNING | DONE | FAILED
+  totalRows      Int      @default(0)
+  processedRows  Int      @default(0)
+  succeededRows  Int      @default(0)
+  failedRows     Int      @default(0)
+  errorLog       String?  @db.LongText // JSON array of { row, error }
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([connectionType])
+  @@index([createdAt])
+}
+
+// ─── Media Library ────────────────────────────────────────────────────────────
+
+model MediaFolder {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   MediaFolder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children MediaFolder[] @relation("FolderTree")
+  files    MediaFile[]
+
+  @@index([parentId])
+}
+
+model MediaFile {
+  id         String   @id @default(cuid())
+  name       String   // original filename
+  cdnUrl     String   @db.Text
+  mimeType   String
+  size       Int      // bytes (original size before conversion)
+  width      Int?
+  height     Int?
+  folderId   String?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+
+  folder MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@index([folderId])
+  @@index([mimeType])
+  @@index([createdAt])
+}
+
+// ─── XML Feed Watcher ─────────────────────────────────────────────────────────
+// Periodically fetches an XML URL, parses its structure, and diffs changes.
+
+model XmlFeed {
+  id            String    @id @default(cuid())
+  name          String
+  url           String    @db.Text
+  description   String?
+  schedule      String    @default("0 */6 * * *") // cron expression
+  isActive      Boolean   @default(true)
+  lastFetchedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  snapshots     XmlFeedSnapshot[]
+  fields        XmlFeedField[]
+  entityMapping XmlFeedEntityMapping?
+  records       XmlFeedRecord[]
+  filters       XmlFeedFilter[]
+
+  @@index([isActive])
+}
+
+// Exclusion rules applied during fetch — field or record level
+model XmlFeedFilter {
+  id       String  @id @default(cuid())
+  feedId   String
+  type     String  // EXCLUDE_FIELD | EXCLUDE_RECORD
+  field    String  // dot-path to the field
+  operator String? // equals | not_equals | contains | not_contains | starts_with | ends_with | is_empty | not_empty | gt | lt | gte | lte
+  value    String? @db.Text // comparison value (null for is_empty / not_empty)
+  label    String? // optional human-readable description
+
+  feed XmlFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+
+  @@index([feedId])
+}
+
+// Maps a feed to a canonical PipelineEntity with per-field mappings
+model XmlFeedEntityMapping {
+  id           String   @id @default(cuid())
+  feedId       String   @unique
+  entityId     String
+  keyFieldPath String?  // XML path used as the record primary key
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  feed      XmlFeed              @relation(fields: [feedId],   references: [id], onDelete: Cascade)
+  entity    PipelineEntity       @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  fieldMaps XmlFeedFieldMap[]
+
+  @@index([entityId])
+}
+
+// One row per XML field → canonical PipelineField mapping
+model XmlFeedFieldMap {
+  id             String  @id @default(cuid())
+  mappingId      String
+  xmlFieldPath   String  // e.g. "item.price"
+  canonicalField String  // PipelineField.name in the target entity
+  transformation String? @db.Text
+
+  mapping XmlFeedEntityMapping @relation(fields: [mappingId], references: [id], onDelete: Cascade)
+
+  @@unique([mappingId, xmlFieldPath])
+  @@index([mappingId])
+}
+
+// One row per fetch run
+model XmlFeedSnapshot {
+  id           String   @id @default(cuid())
+  feedId       String
+  fetchedAt    DateTime @default(now())
+  recordCount  Int      @default(0)
+  status       String   @default("SUCCESS") // SUCCESS | ERROR
+  errorMessage String?  @db.Text
+  parsedData   String?  @db.LongText // legacy blob — new fetches use XmlFeedRecord rows instead
+
+  feed    XmlFeed           @relation(fields: [feedId], references: [id], onDelete: Cascade)
+  changes XmlFeedChange[]
+  records XmlFeedRecord[]
+
+  @@index([feedId])
+  @@index([fetchedAt])
+}
+
+// One row per record per snapshot — replaces the parsedData blob
+model XmlFeedRecord {
+  id         String   @id @default(cuid())
+  feedId     String
+  snapshotId String
+  recordKey  String   // the _key field value
+  data       Json     // flat key→value object (all fields except _key)
+  createdAt  DateTime @default(now())
+
+  feed     XmlFeed         @relation(fields: [feedId],     references: [id], onDelete: Cascade)
+  snapshot XmlFeedSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, recordKey])
+  @@index([feedId])
+  @@index([snapshotId])
+  @@index([recordKey])
+}
+
+// Detected fields across all records in the feed (refreshed on every fetch)
+model XmlFeedField {
+  id          String  @id @default(cuid())
+  feedId      String
+  path        String  // dot-notation path, e.g. "item.price"
+  label       String  // last segment of path
+  dataType    String  @default("string") // string | number | boolean | date
+  isAttribute Boolean @default(false)
+  frequency   Int     @default(0) // how many records contain this field
+  sampleValue String? @db.Text
+
+  feed XmlFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+
+  @@unique([feedId, path])
+  @@index([feedId])
+}
+
+// Changes detected between consecutive snapshots
+model XmlFeedChange {
+  id                 String   @id @default(cuid())
+  snapshotId         String
+  previousSnapshotId String?
+  changeType         String   // RECORD_ADDED | RECORD_REMOVED | FIELD_MODIFIED | NEW_FIELD | REMOVED_FIELD
+  recordKey          String?  // identifies which record changed
+  fieldPath          String?
+  oldValue           String?  @db.Text
+  newValue           String?  @db.Text
+  detectedAt         DateTime @default(now())
+
+  snapshot XmlFeedSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+  @@index([detectedAt])
+}
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+// Mirrors Softone CUSTOMER object. TRDR is the S1 primary key.
+
+model Customer {
+  id          Int       @id @default(autoincrement())
+  trdr        Int?      @unique           // Softone TRDR (null = local-only, not yet pushed)
+  code        String?   @db.VarChar(20)
+  name        String?   @db.VarChar(200)
+  afm         String?   @db.VarChar(20)
+  sotitle     String?   @db.VarChar(200)
+  isprosp     Int       @default(0)      @db.SmallInt  // 0 | 1
+  country     Int?
+  address     String?   @db.VarChar(200)
+  zip         String?   @db.VarChar(20)
+  district    String?   @db.VarChar(100)
+  city        String?   @db.VarChar(100)
+  area        String?   @db.VarChar(100)
+  latitude    Float?
+  longitude   Float?
+  phone01     String?   @db.VarChar(50)
+  phone02     String?   @db.VarChar(50)
+  jobtype     Int?
+  jobtypetrd  String?   @db.VarChar(100)
+  trdpgroup   Int?
+  webpage     String?   @db.VarChar(200)
+  email       String?   @db.VarChar(200)
+  emailacc    String?   @db.VarChar(200)
+  trdbusiness Int?
+  irsdata           String?   @db.VarChar(50)
+  consent           Boolean   @default(false)
+  prjcs             Int?
+  remark            String?   @db.Text
+  registrationDate  DateTime?
+  numberOfEmployees Int?
+  gemiCode          String?   @db.VarChar(50)
+  insdate           DateTime?
+  upddate           DateTime?
+
+  kads        CompanyKad[]
+  contacts    CustomerContact[]
+  branches    TrdBranch[]
+  files       File[]
+  siteSurveys SiteSurvey[]
+
+  @@index([trdr])
+  @@index([code])
+  @@index([afm])
+  @@index([upddate])
+  @@index([insdate])
+}
+
+// ─── Company KAD ─────────────────────────────────────────────────────────────
+// Κωδικοί Αριθμοί Δραστηριότητας linked to a Customer.
+// firmActKind: "1" = primary, "2" = secondary (as returned by AADE).
+
+model CompanyKad {
+  id             Int      @id @default(autoincrement())
+  customerId     Int
+  kadCode        String   @db.VarChar(20)
+  kadDescription String   @db.VarChar(500)
+  kadType        String   @db.VarChar(5)   // "1" = ΚΥΡΙΑ, "2" = ΔΕΥΤΕΡΕΥΟΥΣΑ
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, kadCode])
+  @@index([customerId])
+  @@index([kadCode])
+}
+
+// ─── Customer Branches ───────────────────────────────────────────────────────
+// Mirrors Softone TRDBRANCH object. trdbranch is the S1 primary key.
+
+model TrdBranch {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  trdbranch   Int?     @unique           // Softone TRDBRANCH (null = local-only)
+  code        String?  @db.VarChar(20)
+  name        String?  @db.VarChar(200)
+  country     Int?
+  irsdata     String?  @db.VarChar(50)
+  address     String?  @db.VarChar(200)
+  areas       String?  @db.VarChar(100)
+  district    String?  @db.VarChar(100)
+  zip         String?  @db.VarChar(20)
+  latitude    Float?
+  longitude   Float?
+  phone1      String?  @db.VarChar(50)
+  phone2      String?  @db.VarChar(50)
+  email       String?  @db.VarChar(200)
+  emailacc    String?  @db.VarChar(200)
+  jobtype     Int?
+  jobtypetrd  String?  @db.VarChar(100)
+  remarks     String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([trdbranch])
+}
+
+// ─── Customer Contacts ────────────────────────────────────────────────────────
+
+model CustomerContact {
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  name       String?  @db.VarChar(200)
+  position   String?  @db.VarChar(200)
+  email      String?  @db.VarChar(200)
+  phone      String?  @db.VarChar(50)
+  mobile     String?  @db.VarChar(50)
+  address    String?  @db.VarChar(200)
+  zip        String?  @db.VarChar(20)
+  city       String?  @db.VarChar(100)
+  country    String?  @db.VarChar(100)
+  remarks    String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// ─── Files ────────────────────────────────────────────────────────────────────
+// Unified file attachment model for customers and site surveys.
+// surveyId is null for customer-level files; set for survey-specific files.
+// section identifies which survey section the file belongs to (null for customer files).
+// type is a user-defined category (e.g. "Photo", "Document", "Diagram").
+// name is a user-defined label, separate from the original filename.
+
+model File {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  surveyId    Int?
+  section     String?  @db.VarChar(100)
+  type        String?  @db.VarChar(100)
+  name        String   @db.VarChar(200)
+  cdnUrl      String   @db.Text
+  bunnyPath   String   @db.Text
+  mimeType    String   @db.VarChar(100)
+  size        Int
+  uploadedBy  String?  @db.VarChar(200)
+  createdAt   DateTime @default(now())
+
+  customer Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  survey   SiteSurvey? @relation(fields: [surveyId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([surveyId])
+  @@index([createdAt])
+}
+
+// ─── Auth.js v5 ───────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?   @db.Text
+  password      String?
+  role          String    @default("VIEWER") // ADMIN | OPERATOR | VIEWER
+  jobPosition   String?
+  phone         String?
+  mobile        String?
+  address       String?
+  city          String?
+  zip           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  siteSurveys SiteSurvey[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Database Backups ─────────────────────────────────────────────────────────
+
+model DatabaseBackup {
+  id            String    @id @default(cuid())
+  filename      String                        // e.g. "backup-2026-04-13T10-00-00.sql.gz"
+  bunnyUrl      String?   @db.Text            // public CDN URL
+  bunnyPath     String?   @db.Text            // storage-zone-relative path
+  fileSizeBytes BigInt?                       // compressed size in bytes
+  status        String    @default("PENDING") // PENDING | COMPLETED | FAILED
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  restoredAt    DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── Site Survey ──────────────────────────────────────────────────────────────
+
+model SiteSurvey {
+  id            Int      @id @default(autoincrement())
+  name          String   @db.VarChar(200)
+  description   String?  @db.Text
+  date          DateTime
+  customerId    Int
+  surveyorId    String
+  status        String   @default("DRAFT") // DRAFT | SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED
+
+  // Branches selected for this survey (stored as JSON array of TrdBranch ids)
+  branchIds     Json     @default("[]")
+
+  // Sections to cover (stored as JSON array of section keys)
+  // Possible values: hardware_network | software | web_ecommerce | compliance | iot_ai
+  sections      Json     @default("[]")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  files     File[]
+
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  surveyor  User     @relation(fields: [surveyorId], references: [id])
+
+  @@index([customerId])
+  @@index([surveyorId])
+  @@index([status])
+  @@index([date])
+}

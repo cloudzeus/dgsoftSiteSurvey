@@ -1,0 +1,269 @@
+// Softone Sync — Prisma Schema (MySQL 8)
+// Run: npx prisma db push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Sync Configuration ───────────────────────────────────────────────────────
+
+model SyncConfig {
+  id               String   @id @default(cuid())
+  objectName       String   // e.g. "Customers", "Invoices"
+  tableName        String   // e.g. "CUSTOMERS", "INVOICES"
+  isActive         Boolean  @default(true)
+  syncDirection    String   @default("READ") // READ | WRITE | BIDIRECTIONAL
+  batchSize        Int      @default(100)
+  lastSyncedAt     DateTime?
+  syncSchedule     String   @default("0 */6 * * *")
+  conflictStrategy String   @default("SOFTONE_WINS") // SOFTONE_WINS | LOCAL_WINS | MANUAL_REVIEW
+  filterClause     String?  @db.Text // Optional SoftOne FILTERS string, e.g. "TRDR.ISACTIVE=1"
+  createdBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  syncJobs      SyncJob[]
+  fieldMappings FieldMapping[]
+  cronJobLock   CronJobLock?
+  syncDataFiles SyncDataFile[]
+
+  @@unique([objectName, tableName])
+  @@index([isActive])
+}
+
+model FieldMapping {
+  id               String     @id @default(cuid())
+  syncConfigId     String
+  syncConfig       SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+  softoneFieldName String     // e.g. "CODE", "DESCRIPTION"
+  localColumnName  String     // e.g. "code", "description"
+  dataType         String     // "character" | "numeric" | "datetime"
+  isPrimaryKey     Boolean    @default(false)
+  isTimestamp      Boolean    @default(false) // UPDDATE or INSDATE?
+  isSyncable       Boolean    @default(true)
+  transformation   String?    @db.Text // JSON path or function name
+
+  @@unique([syncConfigId, softoneFieldName])
+}
+
+// ─── Job Queue ────────────────────────────────────────────────────────────────
+
+model SyncJob {
+  id               String     @id @default(cuid())
+  syncConfigId     String
+  syncConfig       SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+  // PENDING | IN_PROGRESS | COMPLETED | FAILED | PARTIAL_FAILURE
+  status           String     @default("PENDING")
+  // FETCH | CREATE | UPDATE | DELETE
+  operation        String
+  totalRecords      Int       @default(0) // Total records expected from SoftOne
+  recordsProcessed  Int       @default(0)
+  recordsSuccessful Int       @default(0)
+  recordsFailed     Int       @default(0)
+  errorMessage     String?    @db.Text
+  errorStack       String?    @db.LongText
+  lastAttempt      DateTime   @default(now())
+  retryCount       Int        @default(0)
+  maxRetries       Int        @default(3)
+  checkpointData   String?    @db.Text // JSON: { lastProcessedId, offset }
+  processedRecords String?    @db.LongText // JSON array of record IDs
+  deadLetterReason String?    @db.Text
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  completedAt      DateTime?
+
+  @@index([status])
+  @@index([syncConfigId, status])
+  @@index([createdAt])
+}
+
+model SyncJobDLQ {
+  id                  String   @id @default(cuid())
+  originalJobId       String
+  syncConfigId        String
+  operation           String
+  recordData          String   @db.LongText // JSON payload that failed
+  errorReason         String   @db.Text
+  // WARNING | ERROR | CRITICAL
+  severity            String
+  requiresManualReview Boolean @default(true)
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  resolution          String?  @db.Text
+  createdAt           DateTime @default(now())
+
+  @@index([severity])
+  @@index([requiresManualReview])
+}
+
+// ─── Cron / Scheduling ────────────────────────────────────────────────────────
+
+model CronJobLock {
+  id               String     @id @default(cuid())
+  syncConfigId     String     @unique
+  syncConfig       SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+  isRunning        Boolean    @default(false)
+  lockAcquiredAt   DateTime?
+  lockExpiresAt    DateTime?  // Auto-release after 1 hour (deadlock prevention)
+  lastCompletedAt  DateTime?
+  nextScheduledRun DateTime?
+
+  @@index([isRunning])
+}
+
+// ─── Audit Trail ─────────────────────────────────────────────────────────────
+
+model SyncAudit {
+  id           String   @id @default(cuid())
+  syncJobId    String
+  syncConfigId String
+  // FETCH | INSERT | UPDATE | DELETE | CONFLICT_RESOLVED
+  action       String
+  recordId     String
+  softoneData  String   @db.LongText // JSON before sync
+  localData    String   @db.LongText // JSON after sync
+  executedBy   String
+  createdAt    DateTime @default(now())
+
+  @@index([syncConfigId, createdAt])
+  @@index([action])
+}
+
+// ─── Softone Metadata Cache ───────────────────────────────────────────────────
+
+model SoftoneMetadata {
+  id         String   @id @default(cuid())
+  objectName String   @unique
+  metadata   String   @db.LongText // JSON: tables, description, etc.
+  cachedAt   DateTime @default(now())
+  expiresAt  DateTime // 24 hours from cachedAt
+
+  @@index([expiresAt])
+}
+
+model SoftoneTableSchema {
+  id         String   @id @default(cuid())
+  objectName String
+  tableName  String   @unique
+  fields     String   @db.LongText // JSON: [{ name, type, size, nullable }]
+  primaryKey String
+  cachedAt   DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([objectName])
+  @@index([expiresAt])
+}
+
+// ─── File Management ─────────────────────────────────────────────────────────
+
+model SyncDataFile {
+  id            String     @id @default(cuid())
+  syncConfigId  String
+  syncConfig    SyncConfig @relation(fields: [syncConfigId], references: [id], onDelete: Cascade)
+  fileName      String
+  fileType      String     // JSON | CSV | BACKUP
+  fileSize      Int        // bytes
+  bunnyUrl      String     @db.Text
+  bunnyPath     String     @db.Text
+  bunnyFileId   String?
+  checksumSHA256 String
+  isBackup      Boolean    @default(false)
+  retentionDays Int        @default(90)
+  expiresAt     DateTime
+  createdAt     DateTime   @default(now())
+  uploadedAt    DateTime?
+
+  @@index([syncConfigId])
+  @@index([expiresAt])
+}
+
+model DatabaseBackup {
+  id             String   @id @default(cuid())
+  // FULL | INCREMENTAL | TRANSACTION_LOG
+  backupType     String
+  backupPath     String   @db.Text
+  bunnyBackupUrl String?  @db.Text
+  databaseSize   Int      // bytes
+  backupSize     Int      // bytes, compressed
+  startedAt      DateTime
+  completedAt    DateTime?
+  binlogPosition String?  // MySQL binary log position
+  isVerified     Boolean  @default(false)
+  verifiedAt     DateTime?
+
+  @@index([completedAt])
+}
+
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+
+model RateLimitTracker {
+  id                 String   @id @default(cuid())
+  connectionId       String   @unique // Softone connection ID
+  requestsThisMinute Int      @default(0)
+  requestsThisHour   Int      @default(0)
+  lastResetMinute    DateTime @default(now())
+  lastResetHour      DateTime @default(now())
+  isThrottled        Boolean  @default(false)
+  throttleUntil      DateTime?
+
+  @@index([isThrottled])
+}
+
+// ─── Auth.js v5 ───────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // bcrypt hash — null for OAuth users
+  // ADMIN | OPERATOR | VIEWER
+  role          String    @default("VIEWER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

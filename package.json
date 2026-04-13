@@ -1,0 +1,26 @@
+{
+  "name": "softone-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Softone ERP Integration Library — monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w softone-admin-dashboard",
+    "build": "npm run build -w @softone/sync && npm run build -w softone-admin-dashboard",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:push": "npm run db:push -w softone-admin-dashboard",
+    "db:seed": "npm run db:seed -w softone-admin-dashboard",
+    "db:studio": "npm run db:studio -w softone-admin-dashboard"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "optionalDependencies": {
+    "lightningcss-darwin-arm64": "^1.32.0"
+  }
+}
