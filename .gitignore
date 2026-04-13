@@ -17,7 +17,7 @@ build/
 .env*.local
 
 # Prisma session cache
-.s1session.json
+.s1session*.json
 
 # Debug
 npm-debug.log*
