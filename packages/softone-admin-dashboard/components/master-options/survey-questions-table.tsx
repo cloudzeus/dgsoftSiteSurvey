@@ -18,13 +18,14 @@ import type { SurveySection, QuestionType } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const SECTIONS: SurveySection[] = ["HARDWARE_NETWORK", "SOFTWARE", "WEB_ECOMMERCE", "IOT_AI"]
+const SECTIONS: SurveySection[] = ["HARDWARE_NETWORK", "SOFTWARE", "WEB_ECOMMERCE", "IOT_AI", "COMPLIANCE"]
 
 const SECTION_LABELS: Record<SurveySection, string> = {
   HARDWARE_NETWORK: "Hardware & Network",
   SOFTWARE:         "Software",
   WEB_ECOMMERCE:    "Web & E-commerce",
   IOT_AI:           "IoT & AI",
+  COMPLIANCE:       "Compliance",
 }
 
 const SECTION_COLORS: Record<SurveySection, { bg: string; fg: string }> = {
@@ -32,9 +33,10 @@ const SECTION_COLORS: Record<SurveySection, { bg: string; fg: string }> = {
   SOFTWARE:         { bg: "#ede9fe", fg: "#6d28d9" },
   WEB_ECOMMERCE:    { bg: "#d1fae5", fg: "#065f46" },
   IOT_AI:           { bg: "#fef3c7", fg: "#92400e" },
+  COMPLIANCE:       { bg: "#ffe4e6", fg: "#9f1239" },
 }
 
-const TYPES: QuestionType[] = ["TEXT", "BOOLEAN", "NUMBER", "DROPDOWN", "MULTI_SELECT"]
+const TYPES: QuestionType[] = ["TEXT", "BOOLEAN", "NUMBER", "DROPDOWN", "MULTI_SELECT", "DEVICE_LIST"]
 
 const TYPE_LABELS: Record<QuestionType, string> = {
   TEXT:         "Text",
@@ -42,6 +44,7 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   NUMBER:       "Number",
   DROPDOWN:     "Dropdown",
   MULTI_SELECT: "Multi-select",
+  DEVICE_LIST:  "Device List",
 }
 
 const TYPE_COLORS: Record<QuestionType, { bg: string; fg: string }> = {
@@ -50,6 +53,7 @@ const TYPE_COLORS: Record<QuestionType, { bg: string; fg: string }> = {
   NUMBER:       { bg: "#d1fae5", fg: "#065f46" },
   DROPDOWN:     { bg: "#dbeafe", fg: "#1d4ed8" },
   MULTI_SELECT: { bg: "#ede9fe", fg: "#6d28d9" },
+  DEVICE_LIST:  { bg: "#ecfdf5", fg: "#065f46" },
 }
 
 const OPTIONS_SOURCE_HINTS = [
