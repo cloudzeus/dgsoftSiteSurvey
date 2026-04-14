@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "npm run dev -w softone-admin-dashboard",
     "build": "npm run build -w @softone/sync && npm run build -w softone-admin-dashboard",
+    "start": "npm run start -w softone-admin-dashboard",
     "type-check": "npm run type-check --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",

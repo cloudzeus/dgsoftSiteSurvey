@@ -1,0 +1,6 @@
+[build]
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm run start -w softone-admin-dashboard"
+healthcheckPath = "/"
