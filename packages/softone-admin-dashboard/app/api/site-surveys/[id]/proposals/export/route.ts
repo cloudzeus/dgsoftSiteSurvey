@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { assertApiAccess } from "@/lib/permissions"
+import { bunnyUpload } from "@/lib/bunny"
 import { SoftwareType, WebCategory, DigitalToolType, IotTech } from "@prisma/client"
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
@@ -12,7 +13,8 @@ type Params = { params: Promise<{ id: string }> }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FONT = "Calibri"
+const FONT      = "Calibri"
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 const SECTION_LABELS_GR: Record<string, string> = {
   HARDWARE_NETWORK: "Υποδομή & Δίκτυα",
@@ -861,12 +863,57 @@ export async function GET(req: Request, { params }: Params) {
 
   const nodeBuffer = await Packer.toBuffer(doc)
   const buf = nodeBuffer.buffer.slice(nodeBuffer.byteOffset, nodeBuffer.byteOffset + nodeBuffer.byteLength) as ArrayBuffer
-  const filename = `proposal-${customerName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}-${surveyDate.replace(/\//g, "-")}.docx`
+
+  // ── 4. Build slug filename from proposal title ─────────────────────────────
+  const GREEK_MAP: Record<string, string> = {
+    α:"a",β:"v",γ:"g",δ:"d",ε:"e",ζ:"z",η:"i",θ:"th",ι:"i",κ:"k",λ:"l",μ:"m",
+    ν:"n",ξ:"x",ο:"o",π:"p",ρ:"r",σ:"s",ς:"s",τ:"t",υ:"y",φ:"f",χ:"ch",ψ:"ps",ω:"o",
+    Α:"A",Β:"V",Γ:"G",Δ:"D",Ε:"E",Ζ:"Z",Η:"I",Θ:"TH",Ι:"I",Κ:"K",Λ:"L",Μ:"M",
+    Ν:"N",Ξ:"X",Ο:"O",Π:"P",Ρ:"R",Σ:"S",Τ:"T",Υ:"Y",Φ:"F",Χ:"CH",Ψ:"PS",Ω:"O",
+  }
+  function slugify(text: string): string {
+    return text
+      .split("").map(c => GREEK_MAP[c] ?? c).join("")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toLowerCase()
+  }
+  const now = new Date()
+  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`
+  const titleSlug = slugify(proposal.title)
+  const filename = `${titleSlug}_${ts}.docx`
+
+  // ── 5. Version & upload to Bunny ───────────────────────────────────────────
+  try {
+    const existingCount = await db.file.count({
+      where: { surveyId, type: "proposal-export" },
+    })
+    const version = String(existingCount + 1).padStart(2, "0")
+    const bunnyPath = `site-surveys/${surveyId}/${titleSlug}_${version}_${ts}.docx`
+    const cdnUrl = await bunnyUpload(bunnyPath, nodeBuffer, DOCX_MIME)
+    await db.file.create({
+      data: {
+        customerId: survey.customer.id,
+        surveyId,
+        section: "proposal",
+        type: "proposal-export",
+        name: `${titleSlug}_${version}_${ts}.docx`,
+        cdnUrl,
+        bunnyPath,
+        mimeType: DOCX_MIME,
+        size: nodeBuffer.byteLength,
+        uploadedBy: "system",
+      },
+    })
+  } catch {
+    // upload failure must not block the download
+  }
 
   return new NextResponse(buf, {
     status: 200,
     headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Type": DOCX_MIME,
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   })

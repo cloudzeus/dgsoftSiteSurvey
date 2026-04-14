@@ -8,7 +8,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, Columns3, Check,
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
-  PlayCircle, FileBarChart2, ListChecks, X, Sparkles,
+  PlayCircle, FileBarChart2, ListChecks, X, Sparkles, Send,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
@@ -19,6 +19,7 @@ import { SiteSurveyDialog, type SurveyUser, type SurveyCustomer, type SurveyCust
 import { SurveyQuestionsWizard } from "./survey-questions-wizard"
 import { SiteSurveyReportModal } from "./site-survey-report-modal"
 import { SurveyProposalModal } from "./survey-proposal-modal"
+import { SurveySendMailDialog } from "./survey-send-mail-dialog"
 import type { SurveySection, SurveyStatus } from "@/app/actions/site-survey"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -983,6 +984,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
   const [fileUploadSurvey, setFileUploadSurvey] = useState<SurveyTableRow | null>(null)
   const [reportSurvey,     setReportSurvey]     = useState<SurveyTableRow | null>(null)
   const [proposalSurvey,   setProposalSurvey]   = useState<SurveyTableRow | null>(null)
+  const [mailSurvey,       setMailSurvey]       = useState<SurveyTableRow | null>(null)
   // Incremented after each upload to signal ExpandedRow to reload files
   const [filesRefreshKeys, setFilesRefreshKeys] = useState<Record<number, number>>({})
 
@@ -1368,6 +1370,12 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                               >
                                 <Paperclip className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Upload Files
                               </DropdownMenu.Item>
+                              <DropdownMenu.Item
+                                onSelect={() => setMailSurvey(s)}
+                                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
+                              >
+                                <Send className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Send Mail
+                              </DropdownMenu.Item>
                               <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
                               <DropdownMenu.Item
                                 onSelect={() => handleDelete(s.id)}
@@ -1460,6 +1468,14 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           onClose={() => setProposalSurvey(null)}
           survey={proposalSurvey}
           users={users}
+        />
+      )}
+
+      {mailSurvey && (
+        <SurveySendMailDialog
+          open={!!mailSurvey}
+          onClose={() => setMailSurvey(null)}
+          survey={mailSurvey}
         />
       )}
 

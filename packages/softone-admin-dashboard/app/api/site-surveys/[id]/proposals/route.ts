@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { notifyProposalAssignees } from "@/lib/proposal-notify"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -76,12 +77,13 @@ export async function POST(req: Request, { params }: Params) {
     if (!surveys.length) return NextResponse.json({ error: "Survey not found" }, { status: 404 })
 
     // Upsert proposal
-    const existing = await db.$queryRaw<{ id: number }[]>`
-      SELECT id FROM SurveyProposal WHERE surveyId = ${surveyId} LIMIT 1
+    const existing = await db.$queryRaw<{ id: number; status: string }[]>`
+      SELECT id, status FROM SurveyProposal WHERE surveyId = ${surveyId} LIMIT 1
     `
 
     let proposalId: number
     const isNew = !existing.length
+    const oldStatus = existing[0]?.status ?? null
 
     if (!isNew) {
       proposalId = existing[0].id
@@ -133,6 +135,21 @@ export async function POST(req: Request, { params }: Params) {
       db.$queryRaw<AssigneeRow[]>`SELECT userId FROM ProposalAssignee WHERE proposalId = ${proposalId}`,
       db.$queryRaw<ResponseRow[]>`SELECT requirementId, response FROM ProposalRequirementResponse WHERE proposalId = ${proposalId}`,
     ])
+
+    // Fire-and-forget notifications
+    if (isNew) {
+      notifyProposalAssignees({
+        surveyId,
+        proposalId,
+        event: { type: "created", proposalTitle: title.trim() },
+      }).catch(console.error)
+    } else if (oldStatus && oldStatus !== status) {
+      notifyProposalAssignees({
+        surveyId,
+        proposalId,
+        event: { type: "status_changed", proposalTitle: title.trim(), oldStatus, newStatus: status },
+      }).catch(console.error)
+    }
 
     return NextResponse.json({
       ...proposal,
