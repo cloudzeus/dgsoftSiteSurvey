@@ -257,7 +257,7 @@ export function SurveySendMailDialog({ open, onClose, survey }: Props) {
         body: JSON.stringify({
           to: recipients.map(r => r.email),
           subject: subject.trim(),
-          html: body.trim().replace(/\n/g, "<br>"),
+          message: body.trim(),
           attachSurvey,
         }),
       })
