@@ -258,7 +258,7 @@ export async function POST(req: Request, { params }: Params) {
       to,
       subject: subject.trim(),
       html,
-      from: `DG Smart <noreply@${process.env.MAILGUN_DOMAIN}>`,
+      from: `DG Smart <platform@${process.env.MAILGUN_DOMAIN}>`,
       attachments: attachment ? [attachment] : undefined,
     })
     return NextResponse.json({ ok: true, id: result.id })

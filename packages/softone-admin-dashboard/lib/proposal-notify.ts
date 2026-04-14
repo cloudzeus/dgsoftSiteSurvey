@@ -336,7 +336,7 @@ export async function notifyProposalAssignees(opts: {
           to:          assignee.email,
           subject,
           html,
-          from:        `DG Smart <noreply@${process.env.MAILGUN_DOMAIN}>`,
+          from:        `DG Smart <platform@${process.env.MAILGUN_DOMAIN}>`,
           attachments: attachment ? [attachment] : undefined,
         })
       })
