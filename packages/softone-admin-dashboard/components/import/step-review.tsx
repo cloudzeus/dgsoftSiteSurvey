@@ -51,6 +51,8 @@ export function StepReview({ config, onChange }: Props) {
       sheetName: config.selectedSheet,
       headerRow: config.headerRow,
       mappings: config.mappings,
+      staticValues: config.staticValues ?? {},
+      categoryMarkers: config.categoryMarkers ?? [],
       skipErrors: config.skipErrors,
     }))
 
@@ -190,6 +192,55 @@ export function StepReview({ config, onChange }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Category markers summary */}
+      {config.categoryMarkers && config.categoryMarkers.filter(m => m.category).length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "var(--foreground-muted)" }}>
+            Category Markers ({config.categoryMarkers.length})
+          </p>
+          <div className="rounded-xl overflow-hidden" style={{ border: "1.5px solid rgb(107,33,168)" }}>
+            {[...config.categoryMarkers].sort((a, b) => a.rowNum - b.rowNum).map((m, i) => (
+              <div key={m.rowNum}
+                className="flex items-center gap-3 px-3 py-2 text-[12px]"
+                style={{
+                  background: i % 2 === 0 ? "rgba(107,33,168,0.05)" : "var(--surface)",
+                  borderBottom: "1px solid var(--border)",
+                }}>
+                <span className="font-mono text-[10px] shrink-0" style={{ color: "rgb(107,33,168)" }}>Row {m.rowNum}</span>
+                <span className="flex-1" style={{ color: "var(--foreground-muted)" }}>→</span>
+                <span className="font-semibold" style={{ color: "rgb(107,33,168)" }}>{m.category || "—"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fixed values summary */}
+      {config.staticValues && Object.keys(config.staticValues).filter(k => config.staticValues[k]).length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "var(--foreground-muted)" }}>
+            Fixed Values (applied to every row)
+          </p>
+          <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--primary)" }}>
+            {Object.entries(config.staticValues).filter(([, v]) => v).map(([key, val], i) => (
+              <div key={key}
+                className="flex items-center gap-2 px-3 py-2 text-[12px]"
+                style={{
+                  background: i % 2 === 0 ? "var(--primary-light)" : "var(--surface)",
+                  borderBottom: "1px solid var(--border)",
+                }}>
+                <span className="flex-1 font-medium capitalize" style={{ color: "var(--foreground-muted)" }}>
+                  {key.replace(/_/g, " ")}
+                </span>
+                <span className="font-semibold" style={{ color: "var(--primary)" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Mapping summary table */}
       <div>

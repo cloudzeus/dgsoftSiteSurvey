@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Loader2, Sheet, GitMerge, Check, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Repeat2, Eye } from "lucide-react"
-import type { ImportConfig, ColumnInfo, RawRow, SheetSettings } from "./types"
+import { Loader2, Sheet, GitMerge, Check, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Repeat2, Tag, Eye } from "lucide-react"
+import type { ImportConfig, ColumnInfo, RawRow, SheetSettings, CategoryMarker } from "./types"
 
 type Props = {
   config: ImportConfig
@@ -215,6 +215,7 @@ export function StepSheet({ config, onChange }: Props) {
         repeatLabelRow: null,
         repeatLabelContent: null,
         excludedRows: [],
+        categoryMarkers: [],
       })
     } catch {
       setError("Failed to read sheet.")
@@ -244,6 +245,7 @@ export function StepSheet({ config, onChange }: Props) {
       repeatLabelRow: config.repeatLabelRow,
       repeatLabelContent: config.repeatLabelContent,
       excludedRows: config.excludedRows,
+      categoryMarkers: config.categoryMarkers,
       forcedMerged: [...forcedMerged],
     }
   }
@@ -277,6 +279,7 @@ export function StepSheet({ config, onChange }: Props) {
         repeatLabelRow: saved.repeatLabelRow,
         repeatLabelContent: saved.repeatLabelContent,
         excludedRows: saved.excludedRows,
+        categoryMarkers: saved.categoryMarkers ?? [],
       })
     } else {
       setForcedMerged(new Set())
@@ -308,6 +311,7 @@ export function StepSheet({ config, onChange }: Props) {
       repeatLabelRow: null,
       repeatLabelContent: null,
       excludedRows: [],
+      categoryMarkers: [],
     })
   }
 
@@ -324,6 +328,24 @@ export function StepSheet({ config, onChange }: Props) {
       ? config.excludedRows.filter(r => r !== rowNum)
       : [...config.excludedRows, rowNum]
     onChange({ excludedRows: next })
+  }
+
+  function toggleCategoryMarker(rowNum: number, row?: RawRow) {
+    const exists = config.categoryMarkers.find(m => m.rowNum === rowNum)
+    if (exists) {
+      onChange({ categoryMarkers: config.categoryMarkers.filter(m => m.rowNum !== rowNum) })
+    } else {
+      const autoCategory = row ? (row.cells.find(c => c && c.trim()) ?? "") : ""
+      onChange({ categoryMarkers: [...config.categoryMarkers, { rowNum, category: autoCategory }] })
+    }
+  }
+
+  function setCategoryMarkerValue(rowNum: number, category: string) {
+    onChange({
+      categoryMarkers: config.categoryMarkers.map(m =>
+        m.rowNum === rowNum ? { ...m, category } : m,
+      ),
+    })
   }
 
   function toggleRepeatLabelRow(row: RawRow) {
@@ -370,6 +392,12 @@ export function StepSheet({ config, onChange }: Props) {
   const activeColumns = useMemo(
     () => config.columns.filter(c => config.selectedColumns.includes(c.key)),
     [config.columns, config.selectedColumns],
+  )
+
+  // Category marker row numbers as a Set for fast lookup
+  const categoryMarkerRowNums = useMemo(
+    () => new Set(config.categoryMarkers.map(m => m.rowNum)),
+    [config.categoryMarkers],
   )
 
   // Rows that match the repeat pattern (excludes the pattern row itself)
@@ -534,6 +562,8 @@ export function StepSheet({ config, onChange }: Props) {
             <span className="font-semibold" style={{ color: "var(--success)" }}>D</span>),
             Repeating label (
             <span className="font-semibold" style={{ color: "rgb(180,100,0)" }}>R</span>),
+            Category marker (
+            <span className="font-semibold" style={{ color: "rgb(107,33,168)" }}>M</span>),
             Exclude row (
             <span className="font-semibold" style={{ color: "rgb(185,28,28)" }}>E</span>).
             &nbsp;·&nbsp;Click a <span className="font-semibold">column letter</span> to include/exclude it.
@@ -597,6 +627,8 @@ export function StepSheet({ config, onChange }: Props) {
                     const isRepeatMatch = repeatMatchRowNums.has(row.rowNum)
                     const isRepeat = isRepeatPattern || isRepeatMatch
                     const isExcluded = config.excludedRows.includes(row.rowNum)
+                    const isCategoryMarker = categoryMarkerRowNums.has(row.rowNum)
+                    const markerCategory = config.categoryMarkers.find(m => m.rowNum === row.rowNum)?.category ?? ""
                     const mergedPhantoms = getMergedPhantomCols(config.mergedRanges, row.rowNum)
 
                     return (
@@ -607,6 +639,8 @@ export function StepSheet({ config, onChange }: Props) {
                           opacity: isBeforeHeader ? 0.4 : isExcluded || (isRepeat && !isRepeatPattern) ? 0.5 : 1,
                           background: isExcluded
                             ? "rgba(220,38,38,0.05)"
+                            : isCategoryMarker
+                            ? "rgba(107,33,168,0.07)"
                             : isHeader
                             ? "rgba(79,70,229,0.07)"
                             : isDataStart
@@ -624,9 +658,11 @@ export function StepSheet({ config, onChange }: Props) {
                         <td
                           className="sticky left-0 z-10 select-none"
                           style={{
-                            minWidth: 110,
+                            minWidth: 126,
                             background: isExcluded
                               ? "rgb(185,28,28)"
+                              : isCategoryMarker
+                              ? "rgb(107,33,168)"
                               : isHeader
                               ? "var(--primary)"
                               : isRepeatPattern
@@ -687,6 +723,19 @@ export function StepSheet({ config, onChange }: Props) {
                                 R
                               </button>
                               <button
+                                onClick={() => row.rowNum >= config.dataStartRow && toggleCategoryMarker(row.rowNum, row)}
+                                title={isCategoryMarker ? "Remove category marker" : "Mark as category — all rows below inherit this category"}
+                                disabled={row.rowNum < config.dataStartRow}
+                                className="rounded px-1.5 py-0.5 text-[9px] font-black transition-all leading-none disabled:opacity-20"
+                                style={{
+                                  background: isCategoryMarker ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.1)",
+                                  color: isCategoryMarker ? "#fff" : "var(--foreground-muted)",
+                                  border: isCategoryMarker ? "1px solid rgba(255,255,255,0.5)" : "1px solid transparent",
+                                }}
+                              >
+                                M
+                              </button>
+                              <button
                                 onClick={() => row.rowNum >= config.dataStartRow && toggleExcludedRow(row.rowNum)}
                                 title={isExcluded ? "Re-include this row" : "Exclude this row from import"}
                                 disabled={row.rowNum < config.dataStartRow}
@@ -703,8 +752,21 @@ export function StepSheet({ config, onChange }: Props) {
                           </div>
                         </td>
 
-                        {/* Cells */}
-                        {Array.from({ length: config.columnCount }).map((_, colIdx) => {
+                        {/* Category marker: show a spanning label instead of individual cells */}
+                        {isCategoryMarker ? (
+                          <td colSpan={config.columnCount}
+                            style={{ borderLeft: "1px solid var(--border)", padding: "6px 12px" }}>
+                            <span className="text-[11px] font-semibold italic"
+                              style={{ color: "rgb(107,33,168)" }}>
+                              {markerCategory
+                                ? <>Category: <strong>{markerCategory}</strong> — all rows below belong to this category</>
+                                : <span style={{ opacity: 0.6 }}>Category marker — set name in the panel below ↓</span>
+                              }
+                            </span>
+                          </td>
+                        ) : (
+                        /* Cells */
+                        Array.from({ length: config.columnCount }).map((_, colIdx) => {
                           const val = row.cells[colIdx] ?? null
                           const colLetter = colIndexToLetter(colIdx)
                           const isMergedPhantomCell = mergedPhantoms.has(colIdx)
@@ -754,7 +816,8 @@ export function StepSheet({ config, onChange }: Props) {
                               )}
                             </td>
                           )
-                        })}
+                        })
+                        )}
                       </tr>
                     )
                   })}
@@ -762,6 +825,60 @@ export function StepSheet({ config, onChange }: Props) {
               </table>
             </div>
           </div>
+
+          {/* ── Category markers panel ── */}
+          {config.categoryMarkers.length > 0 && (
+            <div className="rounded-xl overflow-hidden" style={{ border: "1.5px solid rgb(107,33,168)", background: "rgba(107,33,168,0.04)" }}>
+              <div className="flex items-center gap-2 px-4 py-2.5"
+                style={{ borderBottom: "1px solid rgba(107,33,168,0.25)", background: "rgba(107,33,168,0.08)" }}>
+                <Tag className="size-3.5" style={{ color: "rgb(107,33,168)" }} />
+                <p className="text-[12px] font-semibold" style={{ color: "rgb(107,33,168)" }}>
+                  Category Markers — name each section
+                </p>
+                <p className="text-[11px] ml-auto" style={{ color: "rgba(107,33,168,0.7)" }}>
+                  Rows below each marker inherit its category
+                </p>
+              </div>
+              <datalist id="category-names-list">
+                {Array.from(new Set(config.categoryMarkers.map(m => m.category).filter(Boolean))).map(name => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              <div className="divide-y" style={{ borderColor: "rgba(107,33,168,0.15)" }}>
+                {[...config.categoryMarkers]
+                  .sort((a, b) => a.rowNum - b.rowNum)
+                  .map(marker => (
+                    <div key={marker.rowNum} className="flex items-center gap-3 px-4 py-3">
+                      <span className="text-[11px] font-mono font-bold shrink-0 w-14 text-right"
+                        style={{ color: "rgb(107,33,168)" }}>
+                        Row {marker.rowNum}
+                      </span>
+                      <span className="text-[11px]" style={{ color: "rgba(107,33,168,0.6)" }}>→</span>
+                      <input
+                        type="text"
+                        list="category-names-list"
+                        value={marker.category}
+                        onChange={e => setCategoryMarkerValue(marker.rowNum, e.target.value)}
+                        placeholder="Category name"
+                        className="flex-1 rounded-lg px-3 py-1.5 text-[12px] outline-none"
+                        style={{
+                          background: "var(--surface)",
+                          border: `1.5px solid ${marker.category ? "rgb(107,33,168)" : "var(--border)"}`,
+                          color: "var(--foreground)",
+                        }}
+                      />
+                      <button
+                        onClick={() => toggleCategoryMarker(marker.rowNum)}
+                        className="text-[10px] px-2 py-1 rounded-lg shrink-0"
+                        style={{ background: "rgba(220,38,38,0.1)", color: "rgb(185,28,28)" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 

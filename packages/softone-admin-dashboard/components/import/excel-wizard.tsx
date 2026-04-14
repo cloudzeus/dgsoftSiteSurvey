@@ -29,7 +29,13 @@ function canProceed(step: StepId, config: ImportConfig): boolean {
     case 1: return !!config.fileName
     case 2: return config.selectedColumns.length > 0
     case 3: return !!config.connectionId && !!config.bindingId && !!config.targetObjectKey
-    case 4: return config.mappings.some(m => m.targetField)
+    case 4: {
+      const hasMappings = config.mappings.some(m => m.targetField)
+      if (config.targetObjectKey === "BRAND_PRODUCTS") {
+        return hasMappings && !!config.staticValues?.brand_name
+      }
+      return hasMappings
+    }
     case 5: return true
   }
 }

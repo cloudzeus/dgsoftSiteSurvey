@@ -5,6 +5,8 @@ import { db } from "@/lib/db"
 import ExcelJS from "exceljs"
 import type { ColumnMapping } from "@/components/import/types"
 
+type CategoryMarker = { rowNum: number; category: string }
+
 type RunRequest = {
   jobName: string
   connectionId: string | null
@@ -13,6 +15,8 @@ type RunRequest = {
   sheetName: string
   headerRow: number
   mappings: ColumnMapping[]
+  staticValues?: Record<string, string>
+  categoryMarkers?: CategoryMarker[]
   skipErrors: boolean
 }
 
@@ -149,11 +153,19 @@ async function executeShopify(
 function transformRow(
   rawRow: Record<string, string>,
   mappings: ColumnMapping[],
+  staticValues?: Record<string, string>,
 ): Record<string, string> {
   const out: Record<string, string> = {}
+  // Apply column mappings first
   for (const m of mappings) {
     if (!m.targetField || !m.excelColumn) continue
     out[m.targetField] = rawRow[m.excelColumn] ?? ""
+  }
+  // Static values override / supplement (they win over column-mapped values)
+  if (staticValues) {
+    for (const [key, val] of Object.entries(staticValues)) {
+      if (val) out[key] = val
+    }
   }
   return out
 }
@@ -218,7 +230,7 @@ export async function POST(req: Request) {
       dataRows.push(rowData)
     })
 
-    const totalRows = dataRows.length
+    let totalRows = dataRows.length
     let succeededRows = 0
     let failedRows = 0
     const errorLog: RowError[] = []
@@ -239,11 +251,43 @@ export async function POST(req: Request) {
       },
     })
 
+    // Build a sorted map of category markers keyed by rowNum for quick lookup
+    const markersByRow = new Map<number, string>()
+    for (const m of config.categoryMarkers ?? []) {
+      if (m.category) markersByRow.set(m.rowNum, m.category)
+    }
+    const sortedMarkerRows = [...markersByRow.keys()].sort((a, b) => a - b)
+
+    // Resolve current category for a given Excel row number
+    function getCategoryForRow(excelRowNum: number): string {
+      // Find the last marker row that is <= excelRowNum
+      let cat = ""
+      for (const markerRow of sortedMarkerRows) {
+        if (markerRow <= excelRowNum) cat = markersByRow.get(markerRow)!
+        else break
+      }
+      return cat
+    }
+
     // Process rows
     for (let i = 0; i < dataRows.length; i++) {
       const rawRow = dataRows[i]
-      const transformedRow = transformRow(rawRow, config.mappings)
       const dataRowNum = config.headerRow + i + 1
+
+      // Skip category marker rows — they are section headers, not data
+      if (markersByRow.has(dataRowNum)) {
+        totalRows--
+        continue
+      }
+
+      // Determine effective category: marker-resolved > staticValues > empty
+      const markerCategory = getCategoryForRow(dataRowNum)
+      const effectiveStatic = { ...config.staticValues }
+      if (markerCategory && !effectiveStatic.category) {
+        effectiveStatic.category = markerCategory
+      }
+
+      const transformedRow = transformRow(rawRow, config.mappings, effectiveStatic)
 
       try {
         const ct = config.connectionType

@@ -263,9 +263,12 @@ function MappingTableRow({
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--muted)]/20"
+        onKeyDown={(e) => e.key === "Enter" && setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--muted)]/20 cursor-pointer"
         style={{ background: "var(--card)" }}
       >
         <GitCompareArrows className="size-4 shrink-0" style={{ color: "#6366f1" }} />
@@ -305,7 +308,7 @@ function MappingTableRow({
           {open ? <ChevronUp className="size-4" style={{ color: "var(--muted-foreground)" }} />
                 : <ChevronDown className="size-4" style={{ color: "var(--muted-foreground)" }} />}
         </div>
-      </button>
+      </div>
 
       {open && (
         <div className="px-4 py-4" style={{ borderTop: "1px solid var(--border)", background: "var(--card)" }}>

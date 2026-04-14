@@ -316,16 +316,46 @@ export function getTargetFields(connectionType: string, objectKey: string): Targ
   return objects.find(o => o.key === objectKey)?.fields ?? []
 }
 
+// Common Excel column name aliases → target field key
+const FIELD_ALIASES: Record<string, string> = {
+  // model / sku / code
+  code: "model_name", sku: "model_name", "part no": "model_name", partno: "model_name",
+  "part number": "model_name", partnumber: "model_name", "item code": "model_name",
+  itemcode: "model_name", "product code": "model_name", productcode: "model_name",
+  model: "model_name", "model no": "model_name", modelno: "model_name",
+  "model number": "model_name", modelnumber: "model_name", "item no": "model_name",
+  itemno: "model_name", reference: "model_name", ref: "model_name",
+  // description
+  desc: "description", descr: "description", details: "description",
+  "product description": "description", productdescription: "description",
+  info: "description", notes: "description",
+  // category
+  cat: "category", type: "category", "product type": "category",
+  producttype: "category", "item type": "category", itemtype: "category",
+  // brand
+  brand: "brand_name", vendor: "brand_name", manufacturer: "brand_name",
+  make: "brand_name",
+}
+
 // Auto-suggest a target field key for a given Excel column name
 export function autoMatchField(columnName: string, fields: TargetField[]): string {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "")
   const col = norm(columnName)
+  const colRaw = columnName.trim().toLowerCase()
+
+  // Check aliases first (raw then normalised)
+  const aliasKey = FIELD_ALIASES[colRaw] ?? FIELD_ALIASES[col]
+  if (aliasKey && fields.some(f => f.key === aliasKey)) return aliasKey
+
   // Exact match on key or label
   const exact = fields.find(f => norm(f.key) === col || norm(f.label) === col)
   if (exact) return exact.key
+
   // Partial match
-  const partial = fields.find(f => norm(f.key).includes(col) || col.includes(norm(f.key))
-    || norm(f.label).includes(col) || col.includes(norm(f.label)))
+  const partial = fields.find(f =>
+    norm(f.key).includes(col) || col.includes(norm(f.key)) ||
+    norm(f.label).includes(col) || col.includes(norm(f.label))
+  )
   if (partial) return partial.key
   return ""
 }

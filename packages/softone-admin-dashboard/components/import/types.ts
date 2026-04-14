@@ -34,12 +34,18 @@ export type SheetSettings = {
   repeatLabelRow: number | null
   repeatLabelContent: (string | null)[] | null
   excludedRows: number[]
+  categoryMarkers: CategoryMarker[]
   forcedMerged: string[]   // serialised from Set<string>
 }
 
 export type ColumnMapping = {
   excelColumn: string  // original Excel header
   targetField: string  // target service field key, "" = unmapped
+}
+
+export type CategoryMarker = {
+  rowNum: number    // Excel row number (1-based)
+  category: string  // category name applied to all rows below until next marker
 }
 
 export type ImportConfig = {
@@ -62,6 +68,7 @@ export type ImportConfig = {
   repeatLabelRow: number | null                  // row number the user marked as repeating label
   repeatLabelContent: (string | null)[] | null   // cells of that row — used to skip matches during import
   excludedRows: number[]                         // individual row numbers manually excluded from import
+  categoryMarkers: CategoryMarker[]              // rows that set the category for all rows below them
   sheetSettings: Record<string, SheetSettings>   // saved settings per sheet name
 
   // Step 3
@@ -74,6 +81,7 @@ export type ImportConfig = {
 
   // Step 4
   mappings: ColumnMapping[]
+  staticValues: Record<string, string>  // fixed values applied to every row (e.g. brand_name)
 
   // Step 5
   jobName: string
@@ -97,6 +105,7 @@ export const DEFAULT_CONFIG: ImportConfig = {
   repeatLabelRow: null,
   repeatLabelContent: null,
   excludedRows: [],
+  categoryMarkers: [],
   sheetSettings: {},
   connectionId: null,
   connectionType: "",
@@ -105,6 +114,7 @@ export const DEFAULT_CONFIG: ImportConfig = {
   targetObjectKey: "",
   targetFields: [],
   mappings: [],
+  staticValues: {},
   jobName: "",
   skipErrors: true,
 }
