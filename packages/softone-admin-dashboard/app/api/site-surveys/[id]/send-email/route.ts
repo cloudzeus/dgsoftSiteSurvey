@@ -9,14 +9,14 @@ export async function POST(req: Request, { params }: Params) {
   const surveyId = parseInt(id, 10)
   if (isNaN(surveyId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 })
 
-  let body: { to: string[]; subject: string; html: string }
+  let body: { to: string[]; subject: string; html: string; attachSurvey?: boolean }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const { to, subject, html } = body
+  const { to, subject, html, attachSurvey } = body
   if (!to?.length || !subject?.trim() || !html?.trim()) {
     return NextResponse.json({ error: "to, subject and html are required" }, { status: 400 })
   }
@@ -27,8 +27,34 @@ export async function POST(req: Request, { params }: Params) {
   `
   if (!rows.length) return NextResponse.json({ error: "Survey not found" }, { status: 404 })
 
+  // Optionally fetch and attach the survey DOCX
+  let attachment: { filename: string; data: Buffer; contentType: string } | undefined
+  if (attachSurvey) {
+    try {
+      const baseUrl = (process.env.NEXTAUTH_URL ?? "http://localhost:3000").replace(/\/$/, "")
+      const exportRes = await fetch(`${baseUrl}/api/site-surveys/${surveyId}/export`)
+      if (exportRes.ok) {
+        const buf = await exportRes.arrayBuffer()
+        const disp = exportRes.headers.get("Content-Disposition") ?? ""
+        const filename = disp.match(/filename="([^"]+)"/)?.[1] ?? `survey-${surveyId}.docx`
+        attachment = {
+          filename,
+          data: Buffer.from(buf),
+          contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+      }
+    } catch (e) {
+      console.warn("[send-email] survey export fetch failed:", e)
+    }
+  }
+
   try {
-    const result = await sendMail({ to, subject, html })
+    const result = await sendMail({
+      to,
+      subject,
+      html,
+      attachments: attachment ? [attachment] : undefined,
+    })
     return NextResponse.json({ ok: true, id: result.id })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Mail send failed"

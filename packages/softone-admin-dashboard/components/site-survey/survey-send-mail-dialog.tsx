@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
-import { X, Mail, Plus, Trash2, Loader2, Check, ChevronDown } from "lucide-react"
+import { X, Mail, Plus, Loader2, Check, ChevronDown, Paperclip } from "lucide-react"
 import type { SurveyTableRow } from "./site-surveys-table"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -216,6 +216,7 @@ export function SurveySendMailDialog({ open, onClose, survey }: Props) {
   const [recipients, setRecipients] = useState<RecipientTag[]>([])
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
+  const [attachSurvey, setAttachSurvey] = useState(true)
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -227,6 +228,7 @@ export function SurveySendMailDialog({ open, onClose, survey }: Props) {
     setRecipients([])
     setSubject(`Site Survey: ${survey.name}`)
     setBody("")
+    setAttachSurvey(true)
     setLoadingData(true)
     fetch(`/api/site-surveys/${survey.id}/send-email`)
       .then(r => r.json())
@@ -256,6 +258,7 @@ export function SurveySendMailDialog({ open, onClose, survey }: Props) {
           to: recipients.map(r => r.email),
           subject: subject.trim(),
           html: body.trim().replace(/\n/g, "<br>"),
+          attachSurvey,
         }),
       })
       const d = await res.json()
@@ -358,6 +361,30 @@ export function SurveySendMailDialog({ open, onClose, survey }: Props) {
                     />
                     <p className="text-[11px] text-[var(--muted-foreground)]">Line breaks will be preserved in the sent email.</p>
                   </div>
+
+                  {/* Attach survey toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setAttachSurvey(v => !v)}
+                    className={`flex items-center gap-3 w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                      attachSurvey
+                        ? "border-[var(--primary)]/40 bg-[var(--primary)]/5"
+                        : "border-[var(--border)] bg-[var(--background)] hover:bg-[var(--muted)]/40"
+                    }`}
+                  >
+                    <span className={`size-9 rounded-lg flex items-center justify-center shrink-0 ${attachSurvey ? "bg-[var(--primary)]/10" : "bg-[var(--muted)]"}`}>
+                      <Paperclip className={`size-4 ${attachSurvey ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}`} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-medium text-[var(--foreground)]">Attach site survey document</span>
+                      <span className="block text-xs text-[var(--muted-foreground)] truncate">
+                        {attachSurvey ? `${survey.name}.docx will be attached` : "No attachment"}
+                      </span>
+                    </span>
+                    <span className={`size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${attachSurvey ? "border-[var(--primary)] bg-[var(--primary)]" : "border-[var(--border)]"}`}>
+                      {attachSurvey && <Check className="size-3 text-[var(--primary-foreground)]" />}
+                    </span>
+                  </button>
 
                   {error && (
                     <p className="rounded-lg bg-[var(--destructive)]/10 border border-[var(--destructive)]/20 px-3 py-2 text-sm text-[var(--destructive)]">
