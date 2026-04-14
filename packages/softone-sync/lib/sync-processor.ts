@@ -95,7 +95,9 @@ export async function processJob(
     const client = clientOverride ?? getSoftoneClient()
     const { objectName, tableName, batchSize, filterClause } = job.syncConfig as typeof job.syncConfig & { filterClause?: string | null }
 
-    const primaryKeyField = job.syncConfig.fieldMappings.find((f) => f.isPrimaryKey)
+    type FieldMapping = { softoneFieldName: string; localColumnName: string; isPrimaryKey: boolean; isSyncable: boolean }
+    const fieldMappings = job.syncConfig.fieldMappings as unknown as FieldMapping[]
+    const primaryKeyField = fieldMappings.find((f) => f.isPrimaryKey)
 
     // Fetch first batch to get totalCount, then loop through all pages
     let totalCount = 0
@@ -131,7 +133,7 @@ export async function processJob(
           const recordId = String(softoneRecord[primaryKeyField.softoneFieldName] ?? "")
 
           const localData: Record<string, unknown> = {}
-          for (const mapping of job.syncConfig.fieldMappings) {
+          for (const mapping of fieldMappings) {
             if (!mapping.isSyncable) continue
             localData[mapping.localColumnName] = softoneRecord[mapping.softoneFieldName] ?? null
           }

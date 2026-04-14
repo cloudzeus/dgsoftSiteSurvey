@@ -64,7 +64,8 @@ export async function checkRateLimit(
 
   const updated = await prisma.rateLimitTracker.update({
     where: { connectionId },
-    data: resetData as Parameters<typeof prisma.rateLimitTracker.update>[0]["data"],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data: resetData as any,
   })
 
   if (
