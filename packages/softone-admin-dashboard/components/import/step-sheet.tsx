@@ -538,16 +538,15 @@ export function StepSheet({ config, onChange }: Props) {
             <span className="font-semibold" style={{ color: "rgb(185,28,28)" }}>E</span>).
             &nbsp;·&nbsp;Click a <span className="font-semibold">column letter</span> to include/exclude it.
             &nbsp;·&nbsp;{config.totalRows.toLocaleString()} total rows · {config.columnCount} columns
-            {config.totalRows > config.rawRows.length && <> · showing first {config.rawRows.length}</>}
           </p>
 
           {/* Preview table */}
           <div className="rounded-xl overflow-hidden"
             style={{ border: "1px solid var(--border)", boxShadow: "var(--shadow-xs)" }}>
-            <div className="overflow-x-auto">
+            <div className="overflow-auto" style={{ maxHeight: 500 }}>
               <table className="w-full text-[12px] border-collapse">
                 {/* Clickable column headers */}
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr style={{ background: "var(--muted)", borderBottom: "2px solid var(--border)" }}>
                     {/* gutter placeholder */}
                     <th style={{ minWidth: 96, borderRight: "1px solid var(--border)" }} />

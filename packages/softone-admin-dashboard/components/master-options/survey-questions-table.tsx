@@ -27,6 +27,7 @@ const SECTION_LABELS: Record<SurveySection, string> = {
   WEB_ECOMMERCE:    "Web & E-commerce",
   IOT_AI:           "IoT & AI",
   COMPLIANCE:       "Compliance",
+  VOIP:             "VOIP Telephony",
 }
 
 const SECTION_COLORS: Record<SurveySection, { bg: string; fg: string }> = {
@@ -35,6 +36,7 @@ const SECTION_COLORS: Record<SurveySection, { bg: string; fg: string }> = {
   WEB_ECOMMERCE:    { bg: "#d1fae5", fg: "#065f46" },
   IOT_AI:           { bg: "#fef3c7", fg: "#92400e" },
   COMPLIANCE:       { bg: "#ffe4e6", fg: "#9f1239" },
+  VOIP:             { bg: "#eff6ff", fg: "#1d4ed8" },
 }
 
 const TYPES: QuestionType[] = ["TEXT", "BOOLEAN", "NUMBER", "DROPDOWN", "MULTI_SELECT", "DEVICE_LIST"]

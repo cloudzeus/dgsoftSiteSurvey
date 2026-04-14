@@ -1142,6 +1142,7 @@ enum SurveySection {
   IOT_AI
   HARDWARE_NETWORK
   COMPLIANCE
+  VOIP
 }
 
 enum QuestionType {
@@ -1162,6 +1163,7 @@ enum MasterCategory {
   STORAGE
   IOT
   POWER
+  VOIP
 }
 
 enum SoftwareType {
@@ -1181,10 +1183,27 @@ enum SoftwareType {
 }
 
 model Brand {
-  id         Int     @id @default(autoincrement())
-  name       String  @unique @db.VarChar(120)
-  categories Json    @default("[]") // MasterCategory[]
-  isCommon   Boolean @default(true)
+  id         Int            @id @default(autoincrement())
+  name       String         @unique @db.VarChar(120)
+  categories Json           @default("[]") // MasterCategory[]
+  isCommon   Boolean        @default(true)
+
+  products   BrandProduct[]
+}
+
+model BrandProduct {
+  id          Int     @id @default(autoincrement())
+  brandId     Int
+  modelName   String  @db.VarChar(200)
+  description String? @db.Text
+  category    String? @db.VarChar(100)
+  isActive    Boolean @default(true)
+
+  brand       Brand   @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, modelName])
+  @@index([brandId])
+  @@index([category])
 }
 
 model AssetType {

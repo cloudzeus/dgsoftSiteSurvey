@@ -6,7 +6,7 @@ import * as Checkbox from "@radix-ui/react-checkbox"
 import {
   Plus, X, Search, MoreHorizontal, Check,
   ChevronUp, ChevronDown, ChevronsUpDown, Columns3,
-  Trash2, ChevronLeft, ChevronRight,
+  Trash2, ChevronLeft, ChevronRight, FileSpreadsheet,
 } from "lucide-react"
 import { Btn } from "@/components/ui/btn"
 import { useTablePrefs, PAGE_SIZES, type ColDef, type PageSize } from "@/hooks/use-table-prefs"
@@ -27,6 +27,7 @@ const CATEGORY_LABELS: Record<MasterCategory, string> = {
   STORAGE:    "Storage",
   IOT:        "IoT",
   POWER:      "Power",
+  VOIP:       "VOIP",
 }
 
 const CATEGORY_COLORS: Record<MasterCategory, { bg: string; fg: string }> = {
@@ -36,6 +37,7 @@ const CATEGORY_COLORS: Record<MasterCategory, { bg: string; fg: string }> = {
   STORAGE:    { bg: "#d1fae5", fg: "#065f46" },
   IOT:        { bg: "#fef3c7", fg: "#92400e" },
   POWER:      { bg: "#ffedd5", fg: "#c2410c" },
+  VOIP:       { bg: "#eff6ff", fg: "#1d4ed8" },
 }
 
 const COLUMNS: ColDef[] = [
@@ -400,6 +402,11 @@ export function BrandsTable({ initialBrands }: { initialBrands: BrandRow[] }) {
           </div>
           <div className="flex items-center gap-2">
             {hydrated && <ColumnPicker visibleCols={visibleCols} onToggle={toggleCol} />}
+            <a href="/import" title="Import brand product catalog from Excel">
+              <Btn variant="ghost" size="sm">
+                <FileSpreadsheet className="size-3.5 mr-1" />Import Products
+              </Btn>
+            </a>
             <AddBrandDialog onSuccess={b => { setBrands(prev => [b, ...prev]); setPage(1) }} />
           </div>
         </div>

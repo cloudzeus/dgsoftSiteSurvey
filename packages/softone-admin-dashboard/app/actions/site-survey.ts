@@ -9,6 +9,7 @@ export type SurveySection =
   | "web_ecommerce"
   | "compliance"
   | "iot_ai"
+  | "voip"
 
 export type SurveyStatus =
   | "DRAFT"

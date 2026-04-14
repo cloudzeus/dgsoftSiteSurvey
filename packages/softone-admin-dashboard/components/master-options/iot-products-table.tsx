@@ -6,7 +6,7 @@ import * as Checkbox from "@radix-ui/react-checkbox"
 import {
   Plus, X, Search, MoreHorizontal, Check,
   ChevronUp, ChevronDown, ChevronsUpDown, Columns3,
-  Trash2, ChevronLeft, ChevronRight,
+  Trash2, ChevronLeft, ChevronRight, FileSpreadsheet,
 } from "lucide-react"
 import { Btn } from "@/components/ui/btn"
 import { useTablePrefs, PAGE_SIZES, type ColDef, type PageSize } from "@/hooks/use-table-prefs"
@@ -399,6 +399,11 @@ export function IotProductsTable({ initialProducts, categories }: {
           </div>
           <div className="flex items-center gap-2">
             {hydrated && <ColumnPicker visibleCols={visibleCols} onToggle={toggleCol} />}
+            <a href="/import" title="Import IoT devices from Excel">
+              <Btn variant="ghost" size="sm">
+                <FileSpreadsheet className="size-3.5 mr-1" />Import from Excel
+              </Btn>
+            </a>
             <AddProductDialog categories={categories}
               onSuccess={p => { setProducts(prev => [p, ...prev]); setPage(1) }} />
           </div>

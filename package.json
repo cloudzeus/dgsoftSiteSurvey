@@ -25,5 +25,8 @@
     "@esbuild/linux-x64": "^0.27.7",
     "lightningcss-darwin-arm64": "^1.32.0",
     "lightningcss-linux-x64-gnu": "^1.32.0"
+  },
+  "dependencies": {
+    "puppeteer": "^24.40.0"
   }
 }

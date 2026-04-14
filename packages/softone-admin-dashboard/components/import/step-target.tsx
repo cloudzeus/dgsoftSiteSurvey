@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Loader2, ChevronDown, AlertCircle } from "lucide-react"
+import { Check, Loader2, ChevronDown, AlertCircle, Database } from "lucide-react"
 import type { ImportConfig, TargetField } from "./types"
+import { getTargetObjects } from "@/lib/import-targets"
 
 type Connection = {
   id: string
@@ -44,9 +45,10 @@ const TYPE_COLORS: Record<string, { bg: string; fg: string; dot: string }> = {
   WOOCOMMERCE: { bg: "#fce7f3", fg: "#9d174d", dot: "#db2777" },
   MAGENTO:     { bg: "#fff7ed", fg: "#c2410c", dot: "#ea580c" },
   CUSTOM_REST: { bg: "#f3f4f6", fg: "#374151", dot: "#6b7280" },
+  LOCAL_DB:    { bg: "#eff6ff", fg: "#1d4ed8", dot: "#2563eb" },
 }
 
-const SUPPORTED_TYPES = Object.keys(TYPE_COLORS)
+const SUPPORTED_TYPES = Object.keys(TYPE_COLORS).filter(t => t !== "LOCAL_DB")
 
 function TypeBadge({ type }: { type: string }) {
   const c = TYPE_COLORS[type] ?? TYPE_COLORS.CUSTOM_REST
@@ -64,6 +66,13 @@ function mapDataType(dataType: string): TargetField["type"] {
   if (dataType === "datetime") return "date"
   if (dataType === "logical") return "boolean"
   return "text"
+}
+
+const LOCAL_DB_CONNECTION: Connection = {
+  id: "LOCAL_DB",
+  name: "Local Database",
+  type: "LOCAL_DB",
+  isActive: true,
 }
 
 export function StepTarget({ config, onChange }: Props) {
@@ -111,7 +120,7 @@ export function StepTarget({ config, onChange }: Props) {
       targetFields: [],
       mappings: [],
     })
-    await loadBindings(conn.id)
+    if (conn.id !== "LOCAL_DB") await loadBindings(conn.id)
   }
 
   function selectBinding(binding: Binding) {
@@ -130,7 +139,18 @@ export function StepTarget({ config, onChange }: Props) {
     })
   }
 
+  function selectLocalTarget(obj: { key: string; label: string; description?: string; fields: TargetField[] }) {
+    onChange({
+      bindingId: `LOCAL_DB:${obj.key}`,
+      targetObjectKey: obj.key,
+      targetFields: obj.fields,
+      mappings: [],
+    })
+  }
+
   const selectedBinding = bindings.find(b => b.id === config.bindingId)
+  const isLocalDb = config.connectionId === "LOCAL_DB"
+  const localTargets = getTargetObjects("LOCAL_DB")
 
   return (
     <div className="space-y-5">
@@ -149,16 +169,45 @@ export function StepTarget({ config, onChange }: Props) {
           <Loader2 className="size-4 animate-spin" style={{ color: "var(--primary)" }} />
           <span className="text-[13px]" style={{ color: "var(--foreground-muted)" }}>Loading connections…</span>
         </div>
-      ) : connections.length === 0 ? (
-        <div className="text-center py-10 rounded-xl"
-          style={{ background: "var(--muted)", border: "1px solid var(--border)" }}>
-          <p className="text-[13px] font-medium" style={{ color: "var(--foreground-muted)" }}>No active connections found</p>
-          <p className="text-[12px] mt-1" style={{ color: "var(--foreground-subtle)" }}>
-            Add a Softone, Shopify, Magento, WooCommerce or Custom REST connection first
-          </p>
-        </div>
       ) : (
         <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+          {/* Always-available Local DB card */}
+          {(() => {
+            const conn = LOCAL_DB_CONNECTION
+            const selected = config.connectionId === conn.id
+            const c = TYPE_COLORS.LOCAL_DB
+            return (
+              <button
+                key="LOCAL_DB"
+                onClick={() => selectConnection(conn)}
+                className="relative flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-all"
+                style={{
+                  background: selected ? c.bg : "var(--surface)",
+                  border: `1.5px solid ${selected ? c.dot : "var(--border)"}`,
+                  boxShadow: selected ? `0 0 0 3px ${c.bg}` : "var(--shadow-xs)",
+                }}
+              >
+                {selected && (
+                  <span className="absolute top-2.5 right-2.5 size-5 rounded-full flex items-center justify-center"
+                    style={{ background: c.dot }}>
+                    <Check className="size-3 text-white" strokeWidth={3} />
+                  </span>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Database className="size-3" style={{ color: c.dot }} />
+                  <TypeBadge type="LOCAL_DB" />
+                </div>
+                <p className="text-[13px] font-semibold leading-snug pr-6" style={{ color: "var(--foreground)" }}>
+                  Local Database
+                </p>
+                <p className="text-[11px]" style={{ color: "var(--foreground-muted)" }}>
+                  Hardware, VOIP &amp; IoT catalogs
+                </p>
+              </button>
+            )
+          })()}
+
+          {/* External connections */}
           {connections.map(conn => {
             const selected = config.connectionId === conn.id
             const c = TYPE_COLORS[conn.type] ?? TYPE_COLORS.CUSTOM_REST
@@ -190,8 +239,79 @@ export function StepTarget({ config, onChange }: Props) {
         </div>
       )}
 
-      {/* ── Bindings (entities) for the selected connection ── */}
-      {config.connectionId && (
+      {/* ── Local DB target picker ── */}
+      {isLocalDb && (
+        <div className="space-y-3 pt-1">
+          <div style={{ height: 1, background: "var(--border)" }} />
+          <label className="text-[11px] font-semibold uppercase tracking-wide block mb-2"
+            style={{ color: "var(--foreground-muted)" }}>
+            Import into
+          </label>
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+            {localTargets.map(obj => {
+              const sel = config.bindingId === `LOCAL_DB:${obj.key}`
+              return (
+                <button
+                  key={obj.key}
+                  onClick={() => selectLocalTarget(obj)}
+                  className="flex flex-col items-start gap-1.5 p-3 rounded-xl text-left transition-all"
+                  style={{
+                    background: sel ? "var(--primary-light)" : "var(--muted)",
+                    border: `1.5px solid ${sel ? "var(--primary)" : "var(--border)"}`,
+                  }}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                      {obj.label}
+                    </span>
+                    {sel && <Check className="size-3.5 shrink-0" style={{ color: "var(--primary)" }} strokeWidth={3} />}
+                  </div>
+                  {obj.description && (
+                    <p className="text-[11px] leading-snug" style={{ color: "var(--foreground-muted)" }}>
+                      {obj.description}
+                    </p>
+                  )}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded"
+                    style={{ background: "var(--border)", color: "var(--foreground-muted)" }}>
+                    {obj.fields.length} fields
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Field hint for selected local target */}
+          {config.bindingId?.startsWith("LOCAL_DB:") && config.targetFields.length > 0 && (
+            <details className="group">
+              <summary className="flex items-center gap-1.5 cursor-pointer text-[12px] select-none"
+                style={{ color: "var(--foreground-muted)" }}>
+                <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" />
+                {config.targetFields.length} fields in <strong className="ml-1">{config.targetObjectKey}</strong>
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-1.5 pl-5">
+                {config.targetFields.map(f => (
+                  <span
+                    key={f.key}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px]"
+                    style={{
+                      background: f.required ? "var(--primary-light)" : "var(--muted)",
+                      color: f.required ? "var(--primary)" : "var(--foreground-muted)",
+                      border: `1px solid ${f.required ? "var(--primary)" : "var(--border)"}`,
+                    }}
+                  >
+                    <span className="font-mono text-[9px] opacity-60">{f.key}</span>
+                    {f.label !== f.key && <span>{f.label}</span>}
+                    {f.required && <span className="opacity-60">*</span>}
+                  </span>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* ── Bindings (entities) for external connections ── */}
+      {config.connectionId && !isLocalDb && (
         <div className="space-y-3 pt-1">
           <div style={{ height: 1, background: "var(--border)" }} />
 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useTransition } from "react"
+import React, { useEffect, useRef, useState, useTransition } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import {
   X, Loader2, Save, CheckSquare, Square, Check,
@@ -191,6 +191,228 @@ function MultiSelectAnswer({
   )
 }
 
+// ─── Brand combobox ───────────────────────────────────────────────────────────
+
+function BrandCombobox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [query,    setQuery]    = useState(value)
+  const [results,  setResults]  = useState<{ id: number; name: string }[]>([])
+  const [open,     setOpen]     = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [creating, setCreating] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { setQuery(value) }, [value])
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery(value) // revert if user abandoned without selecting
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [value])
+
+  function search(q: string) {
+    setLoading(true)
+    fetch(`/api/brand-lookup?q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(d => setResults(Array.isArray(d) ? d : []))
+      .catch(() => setResults([]))
+      .finally(() => setLoading(false))
+  }
+
+  function handleFocus() { setOpen(true); search(query) }
+
+  function handleInput(q: string) {
+    setQuery(q)
+    setOpen(true)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => search(q), 200)
+  }
+
+  function handleSelect(name: string) { onChange(name); setQuery(name); setOpen(false) }
+
+  async function handleCreate(name: string) {
+    setCreating(true)
+    try {
+      const res = await fetch("/api/brand-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+      if (res.ok) { const b = await res.json(); handleSelect(b.name) }
+    } finally { setCreating(false) }
+  }
+
+  const trimmed = query.trim()
+  const exactMatch = results.some(r => r.name.toLowerCase() === trimmed.toLowerCase())
+  const showAdd = trimmed.length > 0 && !exactMatch && !loading
+
+  return (
+    <div ref={containerRef} className="flex-1 min-w-[130px] relative">
+      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>
+        Brand
+      </label>
+      <input
+        value={query}
+        onFocus={handleFocus}
+        onChange={e => handleInput(e.target.value)}
+        placeholder="e.g. Fortinet"
+        className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors"
+        style={{ color: "var(--foreground)" }}
+      />
+      {open && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-[70] rounded-lg border border-[var(--border)] shadow-xl overflow-y-auto"
+          style={{ background: "var(--card)", maxHeight: 180 }}>
+          {loading && (
+            <div className="flex items-center gap-2 px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+              <Loader2 className="size-3 animate-spin" /> Searching…
+            </div>
+          )}
+          {!loading && results.map(r => (
+            <button key={r.id} type="button" onClick={() => handleSelect(r.name)}
+              className="w-full text-left px-3 py-2 text-[12px] hover:bg-[var(--muted)] transition-colors"
+              style={{ color: "var(--foreground)" }}>
+              {r.name}
+            </button>
+          ))}
+          {!loading && results.length === 0 && !showAdd && (
+            <p className="px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>No brands found</p>
+          )}
+          {showAdd && (
+            <button type="button" onClick={() => handleCreate(trimmed)} disabled={creating}
+              className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-1.5 hover:bg-indigo-500/10 transition-colors"
+              style={{ color: "var(--primary)", borderTop: "1px solid var(--border)" }}>
+              {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+              Add &ldquo;{trimmed}&rdquo; as new brand
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Model combobox ───────────────────────────────────────────────────────────
+
+function ModelCombobox({
+  brandName, value, onChange,
+}: {
+  brandName: string; value: string; onChange: (v: string) => void
+}) {
+  const [query,    setQuery]    = useState(value)
+  const [results,  setResults]  = useState<{ id: number; modelName: string; category?: string | null }[]>([])
+  const [open,     setOpen]     = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [creating, setCreating] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { setQuery(value) }, [value])
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery(value)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [value])
+
+  function search(q: string) {
+    if (!brandName) return
+    setLoading(true)
+    fetch(`/api/brand-lookup/models?brand=${encodeURIComponent(brandName)}&q=${encodeURIComponent(q)}`)
+      .then(r => r.json())
+      .then(d => setResults(Array.isArray(d) ? d : []))
+      .catch(() => setResults([]))
+      .finally(() => setLoading(false))
+  }
+
+  function handleFocus() { if (!brandName) return; setOpen(true); search(query) }
+
+  function handleInput(q: string) {
+    setQuery(q)
+    if (!brandName) return
+    setOpen(true)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => search(q), 200)
+  }
+
+  function handleSelect(modelName: string) { onChange(modelName); setQuery(modelName); setOpen(false) }
+
+  async function handleCreate(modelName: string) {
+    setCreating(true)
+    try {
+      const res = await fetch("/api/brand-lookup/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brandName, modelName }),
+      })
+      if (res.ok) { const p = await res.json(); handleSelect(p.modelName) }
+    } finally { setCreating(false) }
+  }
+
+  const trimmed    = query.trim()
+  const exactMatch = results.some(r => r.modelName.toLowerCase() === trimmed.toLowerCase())
+  const showAdd    = brandName && trimmed.length > 0 && !exactMatch && !loading
+
+  return (
+    <div ref={containerRef} className="flex-1 min-w-[130px] relative">
+      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>
+        Model
+      </label>
+      <input
+        value={query}
+        onFocus={handleFocus}
+        onChange={e => handleInput(e.target.value)}
+        placeholder={brandName ? "e.g. FortiGate 100F" : "Select a brand first"}
+        disabled={!brandName}
+        className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        style={{ color: "var(--foreground)" }}
+      />
+      {open && brandName && (
+        <div className="absolute left-0 right-0 top-full mt-1 z-[70] rounded-lg border border-[var(--border)] shadow-xl overflow-y-auto"
+          style={{ background: "var(--card)", maxHeight: 180 }}>
+          {loading && (
+            <div className="flex items-center gap-2 px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+              <Loader2 className="size-3 animate-spin" /> Searching…
+            </div>
+          )}
+          {!loading && results.map(r => (
+            <button key={r.id} type="button" onClick={() => handleSelect(r.modelName)}
+              className="w-full text-left px-3 py-2 text-[12px] hover:bg-[var(--muted)] transition-colors flex items-center justify-between"
+              style={{ color: "var(--foreground)" }}>
+              <span>{r.modelName}</span>
+              {r.category && (
+                <span className="text-[10px] ml-2 shrink-0" style={{ color: "var(--muted-foreground)" }}>{r.category}</span>
+              )}
+            </button>
+          ))}
+          {!loading && results.length === 0 && !showAdd && (
+            <p className="px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+              No models for {brandName} yet
+            </p>
+          )}
+          {showAdd && (
+            <button type="button" onClick={() => handleCreate(trimmed)} disabled={creating}
+              className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-1.5 hover:bg-indigo-500/10 transition-colors"
+              style={{ color: "var(--primary)", borderTop: results.length ? "1px solid var(--border)" : "none" }}>
+              {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+              Add &ldquo;{trimmed}&rdquo; to {brandName}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Device form (inline add / edit) ─────────────────────────────────────────
 
 function DeviceForm({
@@ -229,8 +451,15 @@ function DeviceForm({
   return (
     <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/[3%] p-3 space-y-3">
       <div className="flex flex-wrap gap-2">
-        {field("Brand",    "brand",    "e.g. Fortinet")}
-        {field("Model",    "model",    "e.g. FortiGate 100F")}
+        <BrandCombobox
+          value={d.brand}
+          onChange={v => setD(prev => ({ ...prev, brand: v, model: "" }))}
+        />
+        <ModelCombobox
+          brandName={d.brand}
+          value={d.model}
+          onChange={v => setD(prev => ({ ...prev, model: v }))}
+        />
         {field("Serial #", "serial",   "e.g. FG100F1234",     true)}
         {field("Location", "location", "e.g. Server Room A")}
         {hasIp && field("IP Address", "ip", "e.g. 192.168.1.1", true)}

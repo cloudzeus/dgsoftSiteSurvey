@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useState, useTransition } from "react"
+import React, { useState, useTransition, useRef, useEffect } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as Checkbox from "@radix-ui/react-checkbox"
-import { X, Loader2, Check, CalendarDays, ClipboardList } from "lucide-react"
+import { X, Loader2, Check, CalendarDays, ClipboardList, Search, ChevronDown } from "lucide-react"
 import { Btn } from "@/components/ui/btn"
 import {
   createSiteSurvey, updateSiteSurvey, getCustomerBranches,
@@ -60,6 +60,7 @@ const SECTIONS: { key: SurveySection; label: string }[] = [
   { key: "web_ecommerce",    label: "Web & E-commerce" },
   { key: "compliance",       label: "Compliance" },
   { key: "iot_ai",           label: "IoT & AI" },
+  { key: "voip",             label: "VOIP Telephony" },
 ]
 
 const STATUS_OPTIONS: { value: SurveyStatus; label: string }[] = [
@@ -72,6 +73,145 @@ const STATUS_OPTIONS: { value: SurveyStatus; label: string }[] = [
 
 function today() {
   return new Date().toISOString().slice(0, 10)
+}
+
+// ─── Searchable customer combobox ────────────────────────────────────────────
+
+function CustomerSearch({
+  options,
+  value,
+  onChange,
+}: {
+  options: SurveyCustomerOption[]
+  value: number | ""
+  onChange: (id: number | "") => void
+}) {
+  const [query,  setQuery]  = useState("")
+  const [open,   setOpen]   = useState(false)
+  const containerRef        = useRef<HTMLDivElement>(null)
+  const inputRef            = useRef<HTMLInputElement>(null)
+
+  const selected = value !== "" ? options.find(o => o.id === value) : undefined
+
+  const filtered = query.trim().length === 0
+    ? options.slice(0, 80)                                          // show first 80 when no query
+    : options.filter(o =>
+        (o.name ?? "").toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 80)
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  function handleSelect(id: number) {
+    onChange(id)
+    setQuery("")
+    setOpen(false)
+  }
+
+  function handleClear(e: React.MouseEvent) {
+    e.stopPropagation()
+    onChange("")
+    setQuery("")
+    setOpen(false)
+  }
+
+  function handleTriggerClick() {
+    setOpen(o => !o)
+    setTimeout(() => inputRef.current?.focus(), 30)
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={handleTriggerClick}
+        className="w-full flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-sm text-left transition-shadow focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+        style={{ color: selected ? "var(--foreground)" : "var(--muted-foreground)" }}
+      >
+        <span className="flex-1 truncate">
+          {selected ? (selected.name ?? `#${selected.id}`) : "— select customer —"}
+        </span>
+        {selected ? (
+          <span
+            onClick={handleClear}
+            className="flex-shrink-0 size-4 rounded flex items-center justify-center hover:bg-[var(--muted)] transition-colors"
+            style={{ color: "var(--muted-foreground)" }}
+          >
+            <X className="size-3" />
+          </span>
+        ) : (
+          <ChevronDown className="size-3.5 flex-shrink-0" style={{ color: "var(--muted-foreground)" }} />
+        )}
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          className="absolute left-0 right-0 top-full mt-1 z-[60] rounded-lg border border-[var(--border)] shadow-xl overflow-hidden"
+          style={{ background: "var(--card)" }}
+        >
+          {/* Search input */}
+          <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid var(--border)" }}>
+            <Search className="size-3.5 flex-shrink-0" style={{ color: "var(--muted-foreground)" }} />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Type to search customers…"
+              className="flex-1 bg-transparent text-sm outline-none"
+              style={{ color: "var(--foreground)" }}
+            />
+            {query && (
+              <button onClick={() => setQuery("")} style={{ color: "var(--muted-foreground)" }}>
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Results */}
+          <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
+            {filtered.length === 0 ? (
+              <p className="px-3 py-3 text-xs text-center" style={{ color: "var(--muted-foreground)" }}>
+                No customers found
+              </p>
+            ) : (
+              filtered.map(o => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => handleSelect(o.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors"
+                  style={{
+                    background: o.id === value ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "transparent",
+                    color: "var(--foreground)",
+                  }}
+                  onMouseEnter={e => { if (o.id !== value) e.currentTarget.style.background = "var(--muted)" }}
+                  onMouseLeave={e => { if (o.id !== value) e.currentTarget.style.background = "transparent" }}
+                >
+                  {o.id === value && <Check className="size-3 flex-shrink-0" style={{ color: "var(--primary)" }} />}
+                  <span className={o.id === value ? "font-medium" : ""}>{o.name ?? `#${o.id}`}</span>
+                </button>
+              ))
+            )}
+            {filtered.length === 80 && (
+              <p className="px-3 py-2 text-[11px] text-center" style={{ color: "var(--muted-foreground)", borderTop: "1px solid var(--border)" }}>
+                Showing first 80 — type to narrow down
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Mounted fresh each time the parent changes its key — no useEffect needed to reset state.
@@ -182,17 +322,11 @@ function SiteSurveyForm({ onClose, onSaved, customer, customerOptions, users, su
         ) : (
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Customer *</label>
-            <select
+            <CustomerSearch
+              options={customerOptions ?? []}
               value={selectedId}
-              onChange={e => handleCustomerChange(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--ring)] transition-shadow"
-              style={{ color: "var(--foreground)" }}
-            >
-              <option value="">— select customer —</option>
-              {(customerOptions ?? []).map(c => (
-                <option key={c.id} value={c.id}>{c.name ?? `#${c.id}`}</option>
-              ))}
-            </select>
+              onChange={handleCustomerChange}
+            />
           </div>
         )}
 

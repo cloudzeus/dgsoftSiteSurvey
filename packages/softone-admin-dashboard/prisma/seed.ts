@@ -88,6 +88,13 @@ async function main() {
     { name: "QNAP",        categories: [MasterCategory.STORAGE]    },
     { name: "APC",         categories: [MasterCategory.POWER]      },
     { name: "Eaton",       categories: [MasterCategory.POWER]      },
+    // ── VOIP Hardware ──────────────────────────────────────────────────────────
+    { name: "Yealink",     categories: [MasterCategory.VOIP]       },
+    { name: "Poly",        categories: [MasterCategory.VOIP]       },
+    { name: "Snom",        categories: [MasterCategory.VOIP]       },
+    { name: "Gigaset",     categories: [MasterCategory.VOIP]       },
+    { name: "Fanvil",      categories: [MasterCategory.VOIP]       },
+    { name: "Grandstream", categories: [MasterCategory.VOIP]       },
   ]
   for (const b of brands) {
     await db.brand.upsert({
@@ -774,6 +781,107 @@ async function main() {
       label: "Main hardware / network pain points",
       type: QuestionType.TEXT,
       order: 16,
+    },
+
+    // ── VOIP TELEPHONY ────────────────────────────────────────────────────────
+
+    // --- Current Telephony ---
+    {
+      section: SurveySection.VOIP,
+      key: "voip_current_system",
+      label: "Current Phone System Type",
+      type: QuestionType.DROPDOWN,
+      order: 1,
+      options: ["Legacy PBX (Analog/ISDN)", "On-Premise IP-PBX", "Hosted/Cloud VOIP", "Mobile Only"],
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_number_porting",
+      label: "How many numbers need to be ported (LNP)?",
+      type: QuestionType.NUMBER,
+      order: 2,
+    },
+
+    // --- Network Readiness ---
+    {
+      section: SurveySection.VOIP,
+      key: "voip_qos_enabled",
+      label: "Does current networking gear support Quality of Service (QoS)?",
+      type: QuestionType.BOOLEAN,
+      order: 3,
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_poe_switches",
+      label: "Are current switches PoE (Power over Ethernet)?",
+      type: QuestionType.BOOLEAN,
+      order: 4,
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_upload_bandwidth",
+      label: "Measured Upload Speed (Mbps)",
+      type: QuestionType.NUMBER,
+      order: 5,
+    },
+
+    // --- Device & User Personas ---
+    {
+      section: SurveySection.VOIP,
+      key: "voip_handset_count",
+      label: "Total Physical Handsets Required",
+      type: QuestionType.NUMBER,
+      order: 6,
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_softphone_users",
+      label: "Number of users requiring Mobile/PC apps (Softphones)",
+      type: QuestionType.NUMBER,
+      order: 7,
+    },
+
+    // --- Legacy / Hidden Triggers ---
+    {
+      section: SurveySection.VOIP,
+      key: "voip_analog_devices",
+      label: "Legacy Analog Devices (Elevators, Alarms, Fax, Door Entry)",
+      type: QuestionType.MULTI_SELECT,
+      order: 8,
+      options: ["Elevator Phone", "Fire Alarm Line", "Analog Fax Machine", "Intercom/Gate"],
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_ivr_complexity",
+      label: "Call Routing Needs",
+      type: QuestionType.MULTI_SELECT,
+      order: 9,
+      options: ["Simple Auto-Attendant", "Hunt Groups", "Call Queuing (Call Center)", "CRM Integration (Pop-up)"],
+    },
+
+    // --- Hardware Preferences ---
+    {
+      section: SurveySection.VOIP,
+      key: "voip_preferred_brand",
+      label: "Preferred VOIP Hardware Brand",
+      type: QuestionType.DROPDOWN,
+      order: 10,
+      optionsSource: "brand:VOIP",
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_handset_devices",
+      label: "Existing IP Handsets / VOIP Devices Inventory",
+      type: QuestionType.DEVICE_LIST,
+      order: 11,
+      options: { hasIp: true } as any,
+    },
+    {
+      section: SurveySection.VOIP,
+      key: "voip_pain_points",
+      label: "Main telephony pain points / requirements",
+      type: QuestionType.TEXT,
+      order: 12,
     },
   ]
 

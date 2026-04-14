@@ -155,25 +155,20 @@ export async function POST(req: Request) {
       })
     })
 
-    // ── Read raw rows (first 25, all rows returned for interactive preview) ────
-    const PREVIEW_ROWS = 25
+    // ── Read all rows for interactive preview (row exclusion requires seeing every row) ──
     const rawRows: RawRow[] = []
     let totalRows = 0
 
     ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
       totalRows++
-      if (rawRows.length < PREVIEW_ROWS) {
-        const cells: (string | null)[] = []
-        for (let c = 1; c <= maxCol; c++) {
-          const cell = row.getCell(c)
-          // For merged cells that aren't the top-left master, ExcelJS returns
-          // the shared value. We mark phantom merged cells as null.
-          const isMergedPhantom = mergedCellSet.has(`${c - 1}:${rowNum}`)
-            && cell.value === null && c > 1
-          cells[c - 1] = isMergedPhantom ? null : cellToString(cell.value)
-        }
-        rawRows.push({ rowNum, cells })
+      const cells: (string | null)[] = []
+      for (let c = 1; c <= maxCol; c++) {
+        const cell = row.getCell(c)
+        const isMergedPhantom = mergedCellSet.has(`${c - 1}:${rowNum}`)
+          && cell.value === null && c > 1
+        cells[c - 1] = isMergedPhantom ? null : cellToString(cell.value)
       }
+      rawRows.push({ rowNum, cells })
     })
 
     return NextResponse.json({

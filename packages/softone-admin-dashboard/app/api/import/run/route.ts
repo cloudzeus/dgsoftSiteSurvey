@@ -20,6 +20,61 @@ type RowError = { row: number; error: string }
 
 // ─── Executors per connection type ────────────────────────────────────────────
 
+async function executeLocalDb(rowData: Record<string, string>, targetObject: string) {
+  if (targetObject === "BRAND_PRODUCTS") {
+    const brandName = rowData["brand_name"]?.trim()
+    const modelName = rowData["model_name"]?.trim()
+    if (!brandName) throw new Error("brand_name is required")
+    if (!modelName) throw new Error("model_name is required")
+
+    const brand = await db.brand.findUnique({ where: { name: brandName } })
+    if (!brand) throw new Error(`Brand not found: "${brandName}". Add it in Master Options → Brands first.`)
+
+    await db.brandProduct.upsert({
+      where: { brandId_modelName: { brandId: brand.id, modelName } },
+      update: {
+        description: rowData["description"] || null,
+        category:    rowData["category"] || null,
+      },
+      create: {
+        brandId:     brand.id,
+        modelName,
+        description: rowData["description"] || null,
+        category:    rowData["category"] || null,
+      },
+    })
+  } else if (targetObject === "IOT_PRODUCTS") {
+    const modelName    = rowData["model_name"]?.trim()
+    const categoryName = rowData["category_name"]?.trim()
+    if (!modelName)    throw new Error("model_name is required")
+    if (!categoryName) throw new Error("category_name is required")
+
+    let cat = await db.iotCategory.findUnique({ where: { name: categoryName } })
+    if (!cat) cat = await db.iotCategory.create({ data: { name: categoryName } })
+
+    const VALID_TECHS = ["LORAWAN", "AI_VISION", "WIFI_HALOW", "FIVE_G"]
+    const techRaw = (rowData["technology"] ?? "").trim().toUpperCase()
+    const technology = VALID_TECHS.includes(techRaw) ? (techRaw as any) : "LORAWAN"
+
+    await db.iotProduct.upsert({
+      where: { modelName },
+      update: {
+        description: rowData["description"] || null,
+        technology,
+        categoryId: cat.id,
+      },
+      create: {
+        modelName,
+        description: rowData["description"] || null,
+        technology,
+        categoryId: cat.id,
+      },
+    })
+  } else {
+    throw new Error(`Unknown LOCAL_DB target: "${targetObject}"`)
+  }
+}
+
 async function executeSoftone(rowData: Record<string, string>, objectKey: string) {
   // Lazy import to avoid loading in non-Softone contexts
   const { s1 } = await import("@/lib/s1")
@@ -124,9 +179,9 @@ export async function POST(req: Request) {
 
     const config: RunRequest = JSON.parse(configRaw)
 
-    // Load connection if provided
+    // Load connection if provided (not needed for LOCAL_DB)
     let connection: { baseUrl?: string | null; credentials: unknown; type: string } | null = null
-    if (config.connectionId) {
+    if (config.connectionId && config.connectionType !== "LOCAL_DB") {
       connection = await db.connection.findUnique({
         where: { id: config.connectionId },
         select: { baseUrl: true, credentials: true, type: true },
@@ -173,7 +228,7 @@ export async function POST(req: Request) {
       data: {
         name: config.jobName,
         fileName: file.name,
-        connectionId: config.connectionId,
+        connectionId: config.connectionType === "LOCAL_DB" ? null : config.connectionId,
         connectionType: config.connectionType,
         targetObject: config.targetObject,
         sheetName: config.sheetName,
@@ -194,7 +249,9 @@ export async function POST(req: Request) {
         const ct = config.connectionType
         const creds = (connection?.credentials ?? {}) as Record<string, string>
 
-        if (ct === "SOFTONE") {
+        if (ct === "LOCAL_DB") {
+          await executeLocalDb(transformedRow, config.targetObject)
+        } else if (ct === "SOFTONE") {
           await executeSoftone(transformedRow, config.targetObject)
         } else if (ct === "SHOPIFY") {
           await executeShopify(transformedRow, creds, config.targetObject)

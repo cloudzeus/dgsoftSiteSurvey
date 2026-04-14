@@ -270,6 +270,32 @@ const CUSTOM_REST_GENERIC: TargetObject = {
   ],
 }
 
+// ─── Local Database ───────────────────────────────────────────────────────────
+
+const LOCAL_BRAND_PRODUCTS: TargetObject = {
+  key: "BRAND_PRODUCTS",
+  label: "Brand Product Catalog",
+  description: "Hardware, Network, Security, or VOIP brand model catalog",
+  fields: [
+    { key: "brand_name",  label: "Brand Name",       required: true,  type: "text",   description: "Must match an existing brand (e.g. Yealink, Cisco, Fortinet)" },
+    { key: "model_name",  label: "Model Name / SKU", required: true,  type: "text",   description: "Product model identifier, e.g. T54W or SG300-28" },
+    { key: "category",    label: "Product Category",                   type: "text",   description: "e.g. Managed Switch, Deskphone, Firewall, ATA Adapter" },
+    { key: "description", label: "Description",                        type: "text" },
+  ],
+}
+
+const LOCAL_IOT_PRODUCTS: TargetObject = {
+  key: "IOT_PRODUCTS",
+  label: "IoT Device Catalog",
+  description: "IoT/sensor device models (Milesight or other brands) by category",
+  fields: [
+    { key: "model_name",    label: "Model Name",     required: true,  type: "text" },
+    { key: "category_name", label: "Category Name",  required: true,  type: "text",   description: "Must match or will create an IoT category" },
+    { key: "description",   label: "Description",                      type: "text" },
+    { key: "technology",    label: "Technology",                       type: "text",   description: "LORAWAN | AI_VISION | WIFI_HALOW | FIVE_G" },
+  ],
+}
+
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 export const TARGET_OBJECTS_BY_TYPE: Record<string, TargetObject[]> = {
@@ -278,6 +304,7 @@ export const TARGET_OBJECTS_BY_TYPE: Record<string, TargetObject[]> = {
   WOOCOMMERCE: [WOO_PRODUCTS, WOO_CUSTOMERS],
   MAGENTO:     [MAGENTO_PRODUCTS, MAGENTO_CUSTOMERS],
   CUSTOM_REST: [CUSTOM_REST_GENERIC],
+  LOCAL_DB:    [LOCAL_BRAND_PRODUCTS, LOCAL_IOT_PRODUCTS],
 }
 
 export function getTargetObjects(connectionType: string): TargetObject[] {

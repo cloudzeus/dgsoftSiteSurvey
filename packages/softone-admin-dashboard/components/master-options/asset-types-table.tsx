@@ -27,6 +27,7 @@ const CATEGORY_LABELS: Record<MasterCategory, string> = {
   STORAGE:    "Storage",
   IOT:        "IoT",
   POWER:      "Power",
+  VOIP:       "VOIP",
 }
 
 const CATEGORY_COLORS: Record<MasterCategory, { bg: string; fg: string }> = {
@@ -36,6 +37,7 @@ const CATEGORY_COLORS: Record<MasterCategory, { bg: string; fg: string }> = {
   STORAGE:    { bg: "#d1fae5", fg: "#065f46" },
   IOT:        { bg: "#fef3c7", fg: "#92400e" },
   POWER:      { bg: "#ffedd5", fg: "#c2410c" },
+  VOIP:       { bg: "#eff6ff", fg: "#1d4ed8" },
 }
 
 const COLUMNS: ColDef[] = [
