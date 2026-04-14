@@ -41,7 +41,9 @@ import {
   AppWindow,
   Cpu,
   Wifi,
+  ScrollText,
 } from "lucide-react"
+import { LicenseModal, type LicenseData } from "./license-modal"
 
 const MENU_ICON_MAP: Record<string, React.ElementType> = {
   Database, Table2, Users, Package, FileText,
@@ -286,9 +288,18 @@ function Avatar({ email }: { email: string }) {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-export function Sidebar({ user, entityMenuItems = [] }: { user: AuthUser | null | undefined; entityMenuItems?: EntityMenuItem[] }) {
+export function Sidebar({
+  user,
+  entityMenuItems = [],
+  licenseData,
+}: {
+  user: AuthUser | null | undefined
+  entityMenuItems?: EntityMenuItem[]
+  licenseData?: LicenseData
+}) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [licenseOpen, setLicenseOpen] = useState(false)
 
   const filteredEntityItems =
     user && userCanReadResource(user, "records") ? entityMenuItems : []
@@ -435,8 +446,56 @@ export function Sidebar({ user, entityMenuItems = [] }: { user: AuthUser | null 
             const active = pathname === href || pathname.startsWith(href + "/")
             return <NavLink key={href} href={href} label={label} icon={Icon} active={active} collapsed={collapsed} />
           })}
+
+          {/* License button */}
+          {licenseData && (
+            <button
+              onClick={() => setLicenseOpen(true)}
+              title={collapsed ? "License" : undefined}
+              className={cn(
+                "w-full flex items-center rounded-md text-[13px] font-medium transition-all duration-150",
+                collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-[7px]",
+              )}
+              style={{ background: "transparent", color: "var(--sidebar-text)" }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.05)"
+                e.currentTarget.style.color = "var(--sidebar-text-hover)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent"
+                e.currentTarget.style.color = "var(--sidebar-text)"
+              }}
+            >
+              <ScrollText
+                className="size-4 flex-shrink-0"
+                style={{ color: "var(--sidebar-icon)" }}
+              />
+              <span
+                className="flex-1 text-left truncate"
+                style={{
+                  maxWidth: collapsed ? 0 : 140,
+                  opacity: collapsed ? 0 : 1,
+                  overflow: "hidden",
+                  transition: "max-width 200ms ease, opacity 150ms ease",
+                  whiteSpace: "nowrap",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                License
+              </span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* License modal */}
+      {licenseData && (
+        <LicenseModal
+          open={licenseOpen}
+          onClose={() => setLicenseOpen(false)}
+          license={licenseData}
+        />
+      )}
 
       {/* User footer */}
       {user && (

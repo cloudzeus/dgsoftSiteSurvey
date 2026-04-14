@@ -203,7 +203,7 @@ export default async function LoginPage({
               className="text-[11px] mt-10"
               style={{ color: "rgba(255,255,255,0.2)" }}
             >
-              © {new Date().getFullYear()} Site Survey Platform
+              © {new Date().getFullYear()} World Wide Associates E.E
             </p>
           </div>
         </div>
@@ -229,6 +229,13 @@ export default async function LoginPage({
 
           <div className="max-w-[380px] w-full mx-auto">
             <div className="mb-8">
+              <div className="mb-6">
+                <img
+                  src="https://dgsoft.b-cdn.net/media/cmnudo9vv0001d43bk8cyjncr/1776144697342-7ikwrx.webp"
+                  alt="Site Survey Platform"
+                  style={{ height: 100, width: "auto", display: "block" }}
+                />
+              </div>
               <h2
                 className="text-[26px] font-extrabold leading-tight"
                 style={{ color: "#111827" }}
