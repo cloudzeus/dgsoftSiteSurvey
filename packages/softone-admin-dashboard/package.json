@@ -5,7 +5,7 @@
   "description": "Softone ERP admin dashboard — Next.js 16, Tailwind 4.1, auth.js v5, shadcn/ui",
   "scripts": {
     "dev": "prisma generate && next dev --turbopack --port 3000",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "type-check": "tsc --noEmit",
     "lint": "next lint",
