@@ -727,14 +727,14 @@ function ExpandedRow({
   }
 
   return (
-    <tr className="border-b border-[var(--border)] bg-indigo-500/[2.5%]">
+    <tr className="border-b border-[var(--border)]" style={{ background: "color-mix(in srgb, var(--muted) 30%, transparent)" }}>
       {/* Empty cells under checkbox + chevron */}
       <td className="w-[40px]" />
       <td className="w-9" />
 
-      <td colSpan={colSpan - 2} className="py-4 pr-6">
+      <td colSpan={colSpan - 2} className="py-5 pr-6">
         {/* Tabs */}
-        <div className="flex items-center gap-0.5 mb-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-1 mb-5 pb-4 border-b border-[var(--border)]">
           {(["details", "sections", "branches", "files", "requirements", "proposal", "history"] as const).map(t => {
             const label =
               t === "details"      ? "Details"
@@ -744,13 +744,16 @@ function ExpandedRow({
               : t === "proposal"   ? "Proposal"
               : t === "history"    ? "History"
               : "Requirements"
+            const active = tab === t
             return (
               <button
                 key={t}
                 onClick={e => { e.stopPropagation(); handleTabChange(t) }}
                 className={cn(
-                  "relative px-3.5 py-2 text-[11px] font-semibold transition-colors select-none flex items-center gap-1.5",
-                  tab === t ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  "relative px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-all select-none flex items-center gap-1.5",
+                  active
+                    ? "bg-indigo-600 text-white border border-indigo-600"
+                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 border border-transparent",
                 )}
               >
                 {t === "sections"     && <Tag          className="size-3" />}
@@ -760,7 +763,6 @@ function ExpandedRow({
                 {t === "proposal"     && <FileText     className="size-3" />}
                 {t === "history"      && <History      className="size-3" />}
                 {label}
-                {tab === t && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-indigo-500" />}
               </button>
             )
           })}
@@ -768,37 +770,37 @@ function ExpandedRow({
 
         {/* ── Details tab ── */}
         {tab === "details" && (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            <DetailBlock label="Description" icon={<ClipboardList className="size-3" />}>
-              <p className="text-[12px]" style={{ color: "var(--foreground)" }}>
-                {survey.description || <span style={{ color: "var(--muted-foreground)", opacity: 0.5 }}>—</span>}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <DetailBlock label="Description" icon={<ClipboardList className="size-3.5" />}>
+              <p className="text-[13px] leading-relaxed" style={{ color: "var(--foreground)" }}>
+                {survey.description || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
               </p>
             </DetailBlock>
-            <DetailBlock label="Customer" icon={<Building2 className="size-3" />}>
-              <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
+            <DetailBlock label="Customer" icon={<Building2 className="size-3.5" />}>
+              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {survey.customer.name ?? `#${survey.customer.id}`}
               </p>
             </DetailBlock>
-            <DetailBlock label="Surveyor" icon={<User className="size-3" />}>
-              <p className="text-[12px] font-medium" style={{ color: "var(--foreground)" }}>
+            <DetailBlock label="Surveyor" icon={<User className="size-3.5" />}>
+              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {survey.surveyor.name ?? survey.surveyor.email}
               </p>
               {survey.surveyor.name && (
-                <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{survey.surveyor.email}</p>
+                <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>{survey.surveyor.email}</p>
               )}
             </DetailBlock>
-            <DetailBlock label="Date" icon={<Calendar className="size-3" />}>
-              <p className="text-[12px]" style={{ color: "var(--foreground)" }}>
+            <DetailBlock label="Date" icon={<Calendar className="size-3.5" />}>
+              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {new Date(survey.date).toLocaleDateString("el-GR")}
               </p>
             </DetailBlock>
             <DetailBlock label="Status">
-              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border", STATUS_STYLES[survey.status] ?? STATUS_STYLES.DRAFT)}>
+              <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold border", STATUS_STYLES[survey.status] ?? STATUS_STYLES.DRAFT)}>
                 {STATUS_LABELS[survey.status] ?? survey.status}
               </span>
             </DetailBlock>
             <DetailBlock label="Last Updated">
-              <p className="text-[12px]" style={{ color: "var(--foreground)" }}>
+              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {new Date(survey.updatedAt).toLocaleDateString("el-GR")}
               </p>
             </DetailBlock>
@@ -807,9 +809,9 @@ function ExpandedRow({
 
         {/* ── Sections tab ── */}
         {tab === "sections" && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {survey.sections.length === 0 ? (
-              <p className="text-[12px] py-4" style={{ color: "var(--muted-foreground)" }}>No sections selected.</p>
+              <p className="text-[13px] py-4" style={{ color: "var(--muted-foreground)" }}>No sections selected.</p>
             ) : survey.sections.map(s => {
               const stats    = sectionStats[s]
               const hasStats = stats && stats.total > 0
@@ -829,38 +831,36 @@ function ExpandedRow({
                   className={cn(
                     "rounded-xl border transition-colors",
                     completed
-                      ? "border-emerald-500/30 bg-emerald-500/[2%]"
+                      ? "border-emerald-600/50 bg-emerald-950/50"
                       : allDone
-                      ? "border-emerald-500/20 bg-emerald-500/[2%]"
-                      : "border-[var(--border)] bg-[var(--muted)]/10",
+                      ? "border-emerald-700/40 bg-emerald-950/30"
+                      : "border-zinc-700/60 bg-zinc-900/60",
                   )}
                 >
                   {/* Main row */}
-                  <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex items-center gap-3 px-4 py-3.5">
                     <div className={cn(
-                      "size-7 rounded-lg border flex items-center justify-center shrink-0",
-                      completed
-                        ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
-                        : allDone
-                        ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
-                        : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
+                      "size-8 rounded-lg flex items-center justify-center shrink-0",
+                      completed || allDone
+                        ? "bg-emerald-600 text-white"
+                        : "bg-indigo-600 text-white",
                     )}>
-                      {(completed || allDone) ? <Check className="size-3.5" strokeWidth={3} /> : SECTION_ICONS[s]}
+                      {(completed || allDone) ? <Check className="size-4" strokeWidth={2.5} /> : SECTION_ICONS[s]}
                     </div>
 
-                    <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
+                    <p className="text-[14px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
                       {SECTION_LABELS[s] ?? s}
                     </p>
 
                     {/* Q&A progress badge */}
                     {hasStats && (
                       <span className={cn(
-                        "text-[10px] font-bold px-2 py-0.5 rounded-full border tabular-nums",
+                        "text-[12px] font-bold px-3 py-1 rounded-full tabular-nums",
                         allDone
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          ? "bg-emerald-600 text-white"
                           : started
-                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                          : "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]",
+                          ? "bg-amber-500 text-white"
+                          : "bg-zinc-700 text-zinc-300",
                       )}>
                         {stats.answered}/{stats.total}
                       </span>
@@ -868,44 +868,41 @@ function ExpandedRow({
 
                     {/* Invitation status badge */}
                     {completed && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                        <Lock className="size-2.5" /> Customer submitted
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1 rounded-full bg-emerald-600 text-white">
+                        <Lock className="size-3" /> Customer submitted
                       </span>
                     )}
                     {pending && !completed && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/20">
-                        <Clock className="size-2.5" /> Awaiting response
+                      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1 rounded-full bg-amber-500 text-white">
+                        <Clock className="size-3" /> Awaiting response
                       </span>
                     )}
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); setWizardSection(s) }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-400 transition-colors"
-                        style={{ color: "var(--muted-foreground)" }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors"
                       >
-                        <PlayCircle className="size-3" /> Fill out
+                        <PlayCircle className="size-3.5" /> Fill out
                       </button>
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); setInviteSection(s) }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 transition-colors"
-                        style={{ color: "var(--muted-foreground)" }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 px-3 py-1.5 text-[12px] font-semibold text-zinc-100 transition-colors"
                       >
-                        <Mail className="size-3" /> Send to customer
+                        <Mail className="size-3.5" /> Send to customer
                       </button>
                     </div>
                   </div>
 
                   {/* Completion detail strip */}
                   {completed && (
-                    <div className="flex items-center gap-2 px-4 pb-2.5 pt-0">
-                      <UserCheck className="size-3 text-emerald-500 shrink-0" />
-                      <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                        Submitted by{" "}
-                        <span className="font-semibold text-emerald-400">{completed.email}</span>
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-t border-emerald-600/30 bg-emerald-950/40 rounded-b-xl">
+                      <UserCheck className="size-3.5 text-emerald-400 shrink-0" />
+                      <p className="text-[12px] text-emerald-200">
+                        Submitted by <span className="font-bold text-white">{completed.email}</span>
                         {" · "}
                         {new Date(completed.completedAt!).toLocaleDateString("el-GR", {
                           day: "2-digit", month: "short", year: "numeric",
@@ -915,11 +912,10 @@ function ExpandedRow({
                     </div>
                   )}
                   {pending && !completed && (
-                    <div className="flex items-center gap-2 px-4 pb-2.5 pt-0">
-                      <Clock className="size-3 text-amber-500 shrink-0" />
-                      <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                        Link sent to{" "}
-                        <span className="font-semibold text-amber-400">{pending.email}</span>
+                    <div className="flex items-center gap-2 px-4 py-2.5 border-t border-amber-500/30 bg-amber-950/40 rounded-b-xl">
+                      <Clock className="size-3.5 text-amber-400 shrink-0" />
+                      <p className="text-[12px] text-amber-200">
+                        Link sent to <span className="font-bold text-white">{pending.email}</span>
                         {" · expires "}
                         {new Date(pending.expiresAt).toLocaleDateString("el-GR", {
                           day: "2-digit", month: "short", year: "numeric",
@@ -962,16 +958,24 @@ function ExpandedRow({
         {tab === "branches" && (
           <div>
             {survey.branchIds.length === 0 ? (
-              <p className="text-[12px] py-4" style={{ color: "var(--muted-foreground)" }}>
-                All branches / HQ (no specific branches selected).
-              </p>
+              <div className="flex items-center gap-2.5 py-6 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                <Building2 className="size-4 shrink-0" />
+                All branches / HQ — no specific branches selected.
+              </div>
             ) : (
-              <p className="text-[12px] py-4" style={{ color: "var(--foreground)" }}>
-                {survey.branchIds.length} branch{survey.branchIds.length !== 1 ? "es" : ""} selected
-                <span className="ml-2 font-mono text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-                  (IDs: {survey.branchIds.join(", ")})
-                </span>
-              </p>
+              <div className="space-y-2">
+                <p className="text-[12px] font-medium mb-3" style={{ color: "var(--muted-foreground)" }}>
+                  {survey.branchIds.length} branch{survey.branchIds.length !== 1 ? "es" : ""} selected
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {survey.branchIds.map(id => (
+                    <span key={id} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)]/60 px-3 py-1.5 text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
+                      <Building2 className="size-3.5 text-indigo-400" />
+                      Branch #{id}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -981,59 +985,61 @@ function ExpandedRow({
           <div onClick={e => e.stopPropagation()} className="space-y-2">
 
             {filesLoading && (
-              <div className="flex items-center gap-2 py-6 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                <Loader2 className="size-3.5 animate-spin" /> Loading files…
+              <div className="flex items-center gap-2 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                <Loader2 className="size-4 animate-spin" /> Loading files…
               </div>
             )}
 
             {!filesLoading && files && files.length === 0 && (
-              <div className="flex items-center gap-2.5 py-6 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                <Paperclip className="size-3.5 shrink-0" />
+              <div className="flex items-center gap-2.5 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                <Paperclip className="size-4 shrink-0" />
                 No files uploaded yet.
               </div>
             )}
 
             {!filesLoading && files && files.map(f => (
-              <div key={f.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] px-4 py-3 hover:bg-[var(--muted)]/20 transition-colors group">
-                <div className="size-8 rounded-lg bg-[var(--muted)]/50 border border-[var(--border)] flex items-center justify-center shrink-0">
+              <div key={f.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)]/60 px-4 py-3 hover:bg-[var(--muted)]/30 transition-colors group">
+                <div className="size-9 rounded-lg bg-[var(--muted)]/60 border border-[var(--border)] flex items-center justify-center shrink-0">
                   <SurveyFileTypeIcon mimeType={f.mimeType} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-semibold truncate" style={{ color: "var(--foreground)" }}>{f.name}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <p className="text-[14px] font-semibold truncate" style={{ color: "var(--foreground)" }}>{f.name}</p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                     {f.type && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
                         {f.type}
                       </span>
                     )}
                     {f.section && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-amber-500/15 text-amber-300 border border-amber-500/25">
                         {SECTION_LABELS[f.section] ?? f.section}
                       </span>
                     )}
+                    <span className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                      {formatBytes(f.size)} · {new Date(f.createdAt).toLocaleDateString("el-GR")}
+                    </span>
                   </div>
-                  <p className="text-[10px] font-mono mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                    {formatBytes(f.size)} · {f.mimeType} · {new Date(f.createdAt).toLocaleDateString("el-GR")}
-                  </p>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity shrink-0">
                   <a
                     href={f.cdnUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="rounded-md p-1.5 hover:bg-[var(--muted)] transition-colors"
+                    className="rounded-lg p-2 hover:bg-indigo-500/10 hover:text-indigo-300 transition-colors"
                     style={{ color: "var(--muted-foreground)" }}
+                    title="Download"
                   >
-                    <Download className="size-3" />
+                    <Download className="size-4" />
                   </a>
                   <button
                     onClick={() => handleDeleteFile(f.id)}
                     disabled={deletingId === f.id}
-                    className="rounded-md p-1.5 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
+                    className="rounded-lg p-2 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
                     style={{ color: "var(--muted-foreground)" }}
+                    title="Delete"
                   >
-                    {deletingId === f.id ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                    {deletingId === f.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                   </button>
                 </div>
               </div>
@@ -1042,10 +1048,10 @@ function ExpandedRow({
             {!filesLoading && (
               <button
                 onClick={onUploadFiles}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold border border-dashed border-[var(--border)] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
+                className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold border border-dashed border-[var(--border)] hover:border-indigo-500/40 hover:bg-indigo-500/5 hover:text-indigo-300 transition-colors mt-1"
                 style={{ color: "var(--muted-foreground)" }}
               >
-                <Plus className="size-3" />
+                <Plus className="size-4" />
                 Upload file
               </button>
             )}
@@ -1061,19 +1067,19 @@ function ExpandedRow({
 
         {/* ── Proposal tab ── */}
         {tab === "proposal" && (
-          <div className="flex flex-col items-center justify-center gap-3 py-10" onClick={e => e.stopPropagation()}>
-            <div className="size-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-              <FileText className="size-5" />
+          <div className="flex flex-col items-center justify-center gap-4 py-12" onClick={e => e.stopPropagation()}>
+            <div className="size-12 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-300">
+              <FileText className="size-6" />
             </div>
             <div className="text-center">
-              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>Proposal</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Create or edit the proposal for this survey</p>
+              <p className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Proposal</p>
+              <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>Create or edit the proposal for this survey</p>
             </div>
             <button
               onClick={e => { e.stopPropagation(); onOpenProposal() }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-[12px] font-semibold text-white transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-[13px] font-semibold text-white transition-colors"
             >
-              <FileText className="size-3.5" /> Open Proposal
+              <FileText className="size-4" /> Open Proposal
             </button>
           </div>
         )}
@@ -1082,20 +1088,19 @@ function ExpandedRow({
         {tab === "history" && (
           <div onClick={e => e.stopPropagation()}>
             {historyLoading && (
-              <div className="flex items-center gap-2 py-8 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                <Loader2 className="size-3.5 animate-spin" /> Loading history…
+              <div className="flex items-center gap-2 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                <Loader2 className="size-4 animate-spin" /> Loading history…
               </div>
             )}
 
             {!historyLoading && historyRows !== null && historyRows.length === 0 && (
-              <div className="flex items-center gap-2.5 py-8 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                <History className="size-3.5 shrink-0" />
+              <div className="flex items-center gap-2.5 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                <History className="size-4 shrink-0" />
                 No changes recorded yet.
               </div>
             )}
 
             {!historyLoading && historyRows && historyRows.length > 0 && (() => {
-              // Group by section
               const bySection: Record<string, typeof historyRows> = {}
               for (const h of historyRows) {
                 const sec = h.question.section.toLowerCase()
@@ -1103,52 +1108,52 @@ function ExpandedRow({
                 bySection[sec].push(h)
               }
               return (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {Object.entries(bySection).map(([sec, entries]) => (
                     <div key={sec}>
                       {/* Section header */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={cn("size-5 rounded border flex items-center justify-center", "bg-indigo-500/10 border-indigo-500/20 text-indigo-400")}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="size-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
                           {SECTION_ICONS[sec]}
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
+                        <p className="text-[13px] font-bold uppercase tracking-widest text-zinc-200">
                           {SECTION_LABELS[sec] ?? sec}
                         </p>
                       </div>
 
                       {/* Entries */}
-                      <div className="space-y-1 ml-1 border-l-2 border-[var(--border)] pl-4">
+                      <div className="space-y-1 border-l-2 border-indigo-500/20 pl-4 ml-3">
                         {entries.map(h => (
-                          <div key={h.id} className="flex items-start gap-3 py-1.5">
+                          <div key={h.id} className="flex items-start gap-3 py-2 rounded-r-lg px-2 hover:bg-[var(--muted)]/20 transition-colors">
                             {/* Who badge */}
                             <span className={cn(
-                              "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold border",
+                              "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
                               h.changedByType === "CUSTOMER"
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+                                ? "bg-emerald-600 text-white"
+                                : "bg-indigo-600 text-white",
                             )}>
-                              {h.changedByType === "CUSTOMER" ? <UserCheck className="size-2.5" /> : <User className="size-2.5" />}
+                              {h.changedByType === "CUSTOMER" ? <UserCheck className="size-3" /> : <User className="size-3" />}
                               {h.changedByType === "CUSTOMER" ? "Customer" : "Admin"}
                             </span>
 
                             {/* Detail */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-[12px] font-medium truncate" style={{ color: "var(--foreground)" }}>
+                              <p className="text-[13px] font-semibold truncate" style={{ color: "var(--foreground)" }}>
                                 {h.question.label}
                               </p>
-                              <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                              <p className="text-[12px] truncate mt-0.5" style={{ color: "var(--muted-foreground)" }}>
                                 {h.changedBy}
                                 {h.answerValue
                                   ? <> · <span style={{ color: "var(--foreground)" }}>
-                                      {h.answerValue.length > 60 ? h.answerValue.slice(0, 60) + "…" : h.answerValue}
+                                      {h.answerValue.length > 80 ? h.answerValue.slice(0, 80) + "…" : h.answerValue}
                                     </span></>
-                                  : " · (cleared)"
+                                  : <span className="italic"> · cleared</span>
                                 }
                               </p>
                             </div>
 
                             {/* Time */}
-                            <span className="shrink-0 text-[10px] tabular-nums" style={{ color: "var(--muted-foreground)" }}>
+                            <span className="shrink-0 text-[12px] tabular-nums font-medium" style={{ color: "var(--muted-foreground)" }}>
                               {new Date(h.createdAt).toLocaleString("el-GR", {
                                 day: "2-digit", month: "short",
                                 hour: "2-digit", minute: "2-digit",
@@ -1171,8 +1176,8 @@ function ExpandedRow({
 
 function DetailBlock({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border-l-2 border-l-indigo-500/40 bg-indigo-500/[4%] px-3 py-2.5">
-      <p className="text-[9px] font-black uppercase tracking-widest mb-1.5 text-indigo-400/70 flex items-center gap-1">
+    <div className="rounded-xl border border-zinc-700/70 bg-zinc-900/70 px-4 py-3.5">
+      <p className="text-[11px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5 text-zinc-400">
         {icon}{label}
       </p>
       {children}
