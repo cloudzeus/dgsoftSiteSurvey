@@ -4,6 +4,7 @@
 import { notFound } from "next/navigation"
 import { db } from "@/lib/db"
 import { SurveyForm } from "./survey-form"
+import { SoftwareType, WebCategory, DigitalToolType, IotTech } from "@prisma/client"
 
 const SECTION_LABELS: Record<string, string> = {
   hardware_network: "Hardware & Network",
@@ -71,7 +72,7 @@ export default async function SurveyInvitePage({ params }: PageProps) {
       if (q.optionsSource) {
         options = await resolveOptions(q.optionsSource)
       } else if (Array.isArray(q.options)) {
-        options = (q.options as { id: string; label: string }[]).map(o => ({ id: o.id, label: o.label }))
+        options = (q.options as string[]).map(o => ({ id: o, label: o }))
       }
       return { id: q.id, key: q.key, label: q.label, type: q.type as never, order: q.order, options }
     }),
@@ -207,9 +208,9 @@ function SuccessScreen({ sectionLabel, surveyName }: { sectionLabel: string; sur
   )
 }
 
-// ─── Options resolver ─────────────────────────────────────────────────────────
+// ─── Options resolver (exact copy of questions/route.ts logic) ───────────────
 
-async function resolveOptions(optionsSource: string): Promise<{ id: string | number; label: string }[]> {
+async function resolveOptions(optionsSource: string): Promise<{ id: number | string; label: string }[]> {
   const [model, filter] = optionsSource.split(":")
   try {
     switch (model) {
@@ -218,44 +219,48 @@ async function resolveOptions(optionsSource: string): Promise<{ id: string | num
         return rows.map(r => ({ id: r.id, label: r.name }))
       }
       case "software_product": {
-        const rows = await (db.softwareProduct as any).findMany({
-          where: filter ? { type: filter } : undefined,
+        const rows = await db.softwareProduct.findMany({
+          where: filter ? { type: filter as SoftwareType } : undefined,
           include: { vendor: { select: { name: true } } },
           orderBy: { name: "asc" },
         })
-        return rows.map((r: any) => ({
-          id: r.id,
-          label: r.vendor ? `${r.vendor.name} — ${r.name}` : r.name,
-        }))
+        return rows.map(r => ({ id: r.id, label: `${r.name} (${r.vendor.name})` }))
       }
       case "web_platform": {
-        const rows = await (db.webPlatform as any).findMany({
-          where: filter ? { category: filter } : undefined,
+        const rows = await db.webPlatform.findMany({
+          where: filter ? { category: filter as WebCategory } : undefined,
           orderBy: { name: "asc" },
         })
-        return rows.map((r: any) => ({ id: r.id, label: r.name }))
+        return rows.map(r => ({ id: r.id, label: r.name }))
       }
       case "digital_tool": {
-        const rows = await (db.digitalTool as any).findMany({
-          where: filter ? { category: filter } : undefined,
+        const rows = await db.digitalTool.findMany({
+          where: filter ? { type: filter as DigitalToolType } : undefined,
           orderBy: { name: "asc" },
         })
-        return rows.map((r: any) => ({ id: r.id, label: r.name }))
+        return rows.map(r => ({ id: r.id, label: r.name }))
       }
       case "brand": {
-        const rows = await db.brand.findMany({ orderBy: { name: "asc" } })
+        const rows = await db.brand.findMany({
+          where: filter ? { categories: { array_contains: filter } } : undefined,
+          orderBy: { name: "asc" },
+        })
         return rows.map(r => ({ id: r.id, label: r.name }))
       }
       case "iot_category": {
-        const rows = await (db.iotCategory as any).findMany({ orderBy: { name: "asc" } })
-        return rows.map((r: any) => ({ id: r.id, label: r.name }))
+        const rows = await db.iotCategory.findMany({ orderBy: { name: "asc" } })
+        return rows.map(r => ({ id: r.id, label: r.name }))
       }
       case "iot_product": {
-        const rows = await (db.iotProduct as any).findMany({
-          where: filter ? { technology: filter } : undefined,
-          orderBy: { name: "asc" },
+        const rows = await db.iotProduct.findMany({
+          where: filter ? { technology: filter as IotTech } : undefined,
+          include: { category: { select: { name: true } } },
+          orderBy: { modelName: "asc" },
         })
-        return rows.map((r: any) => ({ id: r.id, label: r.name }))
+        return rows.map(r => ({
+          id: r.id,
+          label: r.description ? `${r.modelName} — ${r.description}` : r.modelName,
+        }))
       }
       default:
         return []

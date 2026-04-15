@@ -9,6 +9,7 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
   PlayCircle, FileBarChart2, ListChecks, X, Sparkles, Send, Mail,
+  Lock, Clock, UserCheck,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
@@ -613,13 +614,28 @@ function ExpandedRow({
   onUploadFiles: () => void
   onOpenProposal: () => void
 }) {
-  const [tab,          setTab]          = useState<ExpandedTab>("details")
-  const [files,        setFiles]        = useState<SurveyFileRow[] | null>(null)
-  const [filesLoading, setFilesLoading] = useState(false)
-  const [deletingId,   setDeletingId]   = useState<number | null>(null)
+  type InvitationRow = {
+    id: number; sectionKey: string; email: string
+    expiresAt: string; completedAt: string | null; createdAt: string
+  }
+
+  const [tab,           setTab]           = useState<ExpandedTab>("details")
+  const [files,         setFiles]         = useState<SurveyFileRow[] | null>(null)
+  const [filesLoading,  setFilesLoading]  = useState(false)
+  const [deletingId,    setDeletingId]    = useState<number | null>(null)
   const [wizardSection, setWizardSection] = useState<string | null>(null)
-  const [sectionStats, setSectionStats] = useState<Record<string, { answered: number; total: number }>>({})
+  const [sectionStats,  setSectionStats]  = useState<Record<string, { answered: number; total: number }>>({})
   const [inviteSection, setInviteSection] = useState<string | null>(null)
+  const [invitations,   setInvitations]   = useState<InvitationRow[]>([])
+
+  async function loadInvitations() {
+    try {
+      const res = await fetch(`/api/site-surveys/${survey.id}/invitations`)
+      if (!res.ok) return
+      const { invitations: rows } = await res.json() as { invitations: InvitationRow[] }
+      setInvitations(rows)
+    } catch { /* ignore */ }
+  }
 
   async function loadSectionStats() {
     try {
@@ -651,8 +667,11 @@ function ExpandedRow({
     } catch { /* silently ignore */ }
   }
 
-  // Load section stats on mount so badges are ready before switching tabs
-  React.useEffect(() => { loadSectionStats() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Load section stats + invitations on mount
+  React.useEffect(() => {
+    loadSectionStats()
+    loadInvitations()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function loadFiles() {
     setFilesLoading(true)
@@ -771,58 +790,117 @@ function ExpandedRow({
               const allDone  = hasStats && stats.answered === stats.total
               const started  = hasStats && stats.answered > 0 && !allDone
 
+              // Most recent invitation for this section
+              const sectionInvites = invitations.filter(i => i.sectionKey === s)
+              const completed = sectionInvites.find(i => i.completedAt !== null)
+              const pending   = !completed && sectionInvites.find(
+                i => i.completedAt === null && new Date(i.expiresAt) > new Date()
+              )
+
               return (
                 <div
                   key={s}
                   className={cn(
-                    "w-full flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-                    allDone
-                      ? "border-emerald-500/30 bg-emerald-500/[3%]"
+                    "rounded-xl border transition-colors",
+                    completed
+                      ? "border-emerald-500/30 bg-emerald-500/[2%]"
+                      : allDone
+                      ? "border-emerald-500/20 bg-emerald-500/[2%]"
                       : "border-[var(--border)] bg-[var(--muted)]/10",
                   )}
                 >
-                  <div className={cn(
-                    "size-7 rounded-lg border flex items-center justify-center shrink-0",
-                    allDone
-                      ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
-                      : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
-                  )}>
-                    {allDone ? <Check className="size-3.5" strokeWidth={3} /> : SECTION_ICONS[s]}
-                  </div>
-                  <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
-                    {SECTION_LABELS[s] ?? s}
-                  </p>
-                  {hasStats && (
-                    <span className={cn(
-                      "text-[10px] font-bold px-2 py-0.5 rounded-full border tabular-nums",
-                      allDone
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : started
-                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                        : "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]",
+                  {/* Main row */}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className={cn(
+                      "size-7 rounded-lg border flex items-center justify-center shrink-0",
+                      completed
+                        ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
+                        : allDone
+                        ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
+                        : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
                     )}>
-                      {stats.answered}/{stats.total}
-                    </span>
-                  )}
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                    <button
-                      type="button"
-                      onClick={e => { e.stopPropagation(); setWizardSection(s) }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-400 transition-colors"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      <PlayCircle className="size-3" /> Fill out
-                    </button>
-                    <button
-                      type="button"
-                      onClick={e => { e.stopPropagation(); setInviteSection(s) }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 transition-colors"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      <Mail className="size-3" /> Send to customer
-                    </button>
+                      {(completed || allDone) ? <Check className="size-3.5" strokeWidth={3} /> : SECTION_ICONS[s]}
+                    </div>
+
+                    <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
+                      {SECTION_LABELS[s] ?? s}
+                    </p>
+
+                    {/* Q&A progress badge */}
+                    {hasStats && (
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-0.5 rounded-full border tabular-nums",
+                        allDone
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : started
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]",
+                      )}>
+                        {stats.answered}/{stats.total}
+                      </span>
+                    )}
+
+                    {/* Invitation status badge */}
+                    {completed && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                        <Lock className="size-2.5" /> Customer submitted
+                      </span>
+                    )}
+                    {pending && !completed && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                        <Clock className="size-2.5" /> Awaiting response
+                      </span>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setWizardSection(s) }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-400 transition-colors"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        <PlayCircle className="size-3" /> Fill out
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setInviteSection(s) }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 transition-colors"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        <Mail className="size-3" /> Send to customer
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Completion detail strip */}
+                  {completed && (
+                    <div className="flex items-center gap-2 px-4 pb-2.5 pt-0">
+                      <UserCheck className="size-3 text-emerald-500 shrink-0" />
+                      <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                        Submitted by{" "}
+                        <span className="font-semibold text-emerald-400">{completed.email}</span>
+                        {" · "}
+                        {new Date(completed.completedAt!).toLocaleDateString("el-GR", {
+                          day: "2-digit", month: "short", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  )}
+                  {pending && !completed && (
+                    <div className="flex items-center gap-2 px-4 pb-2.5 pt-0">
+                      <Clock className="size-3 text-amber-500 shrink-0" />
+                      <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                        Link sent to{" "}
+                        <span className="font-semibold text-amber-400">{pending.email}</span>
+                        {" · expires "}
+                        {new Date(pending.expiresAt).toLocaleDateString("el-GR", {
+                          day: "2-digit", month: "short", year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -842,7 +920,7 @@ function ExpandedRow({
         {/* ── Customer invite dialog ── */}
         <SurveyInviteDialog
           open={inviteSection !== null}
-          onClose={() => setInviteSection(null)}
+          onClose={() => { setInviteSection(null); loadInvitations() }}
           surveyId={survey.id}
           surveyName={survey.name}
           sectionKey={inviteSection ?? ""}

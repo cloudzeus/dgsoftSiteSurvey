@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { assertApiAccess } from "@/lib/permissions"
+import { auth } from "@/lib/auth"
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -48,17 +49,32 @@ export async function POST(req: Request, { params }: Params) {
 
   const keyToId = Object.fromEntries(questions.map((q) => [q.key, q.id]))
 
-  const upserts = keys
-    .filter((key) => keyToId[key] !== undefined)
-    .map((key) =>
-      db.surveyResult.upsert({
-        where: { surveyId_questionId: { surveyId, questionId: keyToId[key] } },
-        update: { answerValue: answers[key] },
-        create: { surveyId, questionId: keyToId[key], answerValue: answers[key] },
-      })
-    )
+  const session  = await auth()
+  const adminId  = session?.user?.id ?? "unknown"
 
-  await db.$transaction(upserts)
+  const validKeys = keys.filter((key) => keyToId[key] !== undefined)
 
-  return NextResponse.json({ saved: upserts.length })
+  const upserts = validKeys.map((key) =>
+    db.surveyResult.upsert({
+      where: { surveyId_questionId: { surveyId, questionId: keyToId[key] } },
+      update: { answerValue: answers[key] },
+      create: { surveyId, questionId: keyToId[key], answerValue: answers[key] },
+    })
+  )
+
+  const historyInserts = validKeys.map((key) =>
+    db.surveyResultHistory.create({
+      data: {
+        surveyId,
+        questionId: keyToId[key],
+        answerValue: answers[key],
+        changedBy: adminId,
+        changedByType: "ADMIN",
+      },
+    })
+  )
+
+  await db.$transaction([...upserts, ...historyInserts])
+
+  return NextResponse.json({ saved: validKeys.length })
 }

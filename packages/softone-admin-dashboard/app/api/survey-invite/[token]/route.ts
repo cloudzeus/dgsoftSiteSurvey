@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { sendMail } from "@/lib/mail"
+import { SoftwareType, WebCategory, DigitalToolType, IotTech } from "@prisma/client"
 
 const SECTION_LABELS: Record<string, string> = {
   hardware_network: "Hardware & Network",
@@ -77,17 +78,13 @@ export async function GET(
       let options: { id: string | number; label: string }[] = []
 
       if (q.optionsSource) {
-        const [model, filter] = q.optionsSource.split(":")
         try {
-          options = await resolveOptions(model, filter)
+          options = await resolveOptions(q.optionsSource)
         } catch {
           options = []
         }
       } else if (Array.isArray(q.options)) {
-        options = (q.options as { id: string; label: string }[]).map((o) => ({
-          id: o.id,
-          label: o.label,
-        }))
+        options = (q.options as string[]).map((o) => ({ id: o, label: o }))
       }
 
       return {
@@ -164,17 +161,30 @@ export async function POST(
     select: { id: true, key: true },
   })
 
-  const ops = questions
-    .filter((q) => answers[q.key] !== undefined)
-    .map((q) =>
-      db.surveyResult.upsert({
-        where: { surveyId_questionId: { surveyId: invitation.surveyId, questionId: q.id } },
-        create: { surveyId: invitation.surveyId, questionId: q.id, answerValue: answers[q.key] },
-        update: { answerValue: answers[q.key] },
-      }),
-    )
+  const validQuestions = questions.filter((q) => answers[q.key] !== undefined)
 
-  await db.$transaction(ops)
+  const upserts = validQuestions.map((q) =>
+    db.surveyResult.upsert({
+      where: { surveyId_questionId: { surveyId: invitation.surveyId, questionId: q.id } },
+      create: { surveyId: invitation.surveyId, questionId: q.id, answerValue: answers[q.key] },
+      update: { answerValue: answers[q.key] },
+    }),
+  )
+
+  const historyInserts = validQuestions.map((q) =>
+    db.surveyResultHistory.create({
+      data: {
+        surveyId:     invitation.surveyId,
+        questionId:   q.id,
+        answerValue:  answers[q.key],
+        changedBy:    invitation.email,
+        changedByType: "CUSTOMER",
+        invitationId: invitation.id,
+      },
+    }),
+  )
+
+  await db.$transaction([...upserts, ...historyInserts])
 
   // Mark invitation as completed
   await db.surveyInvitation.update({
@@ -217,56 +227,60 @@ export async function POST(
   return NextResponse.json({ ok: true })
 }
 
-// ─── Options resolver (mirrors questions/route.ts logic) ──────────────────────
+// ─── Options resolver (exact copy of questions/route.ts logic) ───────────────
 
 async function resolveOptions(
-  model: string,
-  filter?: string,
-): Promise<{ id: string | number; label: string }[]> {
+  source: string,
+): Promise<{ id: number | string; label: string }[]> {
+  const [model, filter] = source.split(":")
   switch (model) {
     case "software_vendor": {
       const rows = await db.softwareVendor.findMany({ orderBy: { name: "asc" } })
       return rows.map((r) => ({ id: r.id, label: r.name }))
     }
     case "software_product": {
-      const rows = await (db.softwareProduct as any).findMany({
-        where: filter ? { type: filter } : undefined,
+      const rows = await db.softwareProduct.findMany({
+        where: filter ? { type: filter as SoftwareType } : undefined,
         include: { vendor: { select: { name: true } } },
         orderBy: { name: "asc" },
       })
-      return rows.map((r: any) => ({
-        id: r.id,
-        label: r.vendor ? `${r.vendor.name} — ${r.name}` : r.name,
-      }))
+      return rows.map((r) => ({ id: r.id, label: `${r.name} (${r.vendor.name})` }))
     }
     case "web_platform": {
-      const rows = await (db.webPlatform as any).findMany({
-        where: filter ? { category: filter } : undefined,
+      const rows = await db.webPlatform.findMany({
+        where: filter ? { category: filter as WebCategory } : undefined,
         orderBy: { name: "asc" },
       })
-      return rows.map((r: any) => ({ id: r.id, label: r.name }))
+      return rows.map((r) => ({ id: r.id, label: r.name }))
     }
     case "digital_tool": {
-      const rows = await (db.digitalTool as any).findMany({
-        where: filter ? { category: filter } : undefined,
+      const rows = await db.digitalTool.findMany({
+        where: filter ? { type: filter as DigitalToolType } : undefined,
         orderBy: { name: "asc" },
       })
-      return rows.map((r: any) => ({ id: r.id, label: r.name }))
+      return rows.map((r) => ({ id: r.id, label: r.name }))
     }
     case "brand": {
-      const rows = await db.brand.findMany({ orderBy: { name: "asc" } })
+      const rows = await db.brand.findMany({
+        where: filter ? { categories: { array_contains: filter } } : undefined,
+        orderBy: { name: "asc" },
+      })
       return rows.map((r) => ({ id: r.id, label: r.name }))
     }
     case "iot_category": {
-      const rows = await (db.iotCategory as any).findMany({ orderBy: { name: "asc" } })
-      return rows.map((r: any) => ({ id: r.id, label: r.name }))
+      const rows = await db.iotCategory.findMany({ orderBy: { name: "asc" } })
+      return rows.map((r) => ({ id: r.id, label: r.name }))
     }
     case "iot_product": {
-      const rows = await (db.iotProduct as any).findMany({
-        where: filter ? { technology: filter } : undefined,
-        orderBy: { name: "asc" },
+      const rows = await db.iotProduct.findMany({
+        where: filter ? { technology: filter as IotTech } : undefined,
+        include: { category: { select: { name: true } } },
+        orderBy: { modelName: "asc" },
       })
-      return rows.map((r: any) => ({ id: r.id, label: r.name }))
+      return rows.map((r) => ({
+        id: r.id,
+        label: r.description ? `${r.modelName} — ${r.description}` : r.modelName,
+      }))
     }
     default:
       return []

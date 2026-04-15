@@ -1015,6 +1015,7 @@ model SiteSurvey {
 
   files             File[]
   results           SurveyResult[]
+  resultHistory     SurveyResultHistory[]
   clientRequirements ClientRequirement[]
   proposal          SurveyProposal?
   invitations       SurveyInvitation[]
@@ -1062,6 +1063,7 @@ model SurveyQuestion {
   isActive      Boolean       @default(true)
 
   results SurveyResult[]
+  history SurveyResultHistory[]
 
   @@index([section])
   @@index([order])
@@ -1081,6 +1083,27 @@ model SurveyResult {
   @@unique([surveyId, questionId])
   @@index([surveyId])
   @@index([questionId])
+}
+
+// ─── Survey Result History (audit trail of all answer changes) ────────────────
+
+model SurveyResultHistory {
+  id            Int      @id @default(autoincrement())
+  surveyId      Int
+  questionId    Int
+  answerValue   String?  @db.Text
+  changedBy     String   @db.VarChar(300) // admin user id OR customer email
+  changedByType String   @db.VarChar(10)  // "ADMIN" | "CUSTOMER"
+  invitationId  Int?                       // set when changed via customer invitation
+  createdAt     DateTime @default(now())
+
+  survey   SiteSurvey    @relation(fields: [surveyId],   references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id])
+
+  @@index([surveyId])
+  @@index([questionId])
+  @@index([invitationId])
+  @@index([createdAt])
 }
 
 // ─── Client Requirements (per-survey) ────────────────────────────────────────
