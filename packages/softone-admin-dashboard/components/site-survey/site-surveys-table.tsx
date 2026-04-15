@@ -727,14 +727,14 @@ function ExpandedRow({
   }
 
   return (
-    <tr className="border-b border-[var(--border)]" style={{ background: "color-mix(in srgb, var(--muted) 30%, transparent)" }}>
+    <tr className="border-b border-[var(--border)] bg-[var(--muted)]/20">
       {/* Empty cells under checkbox + chevron */}
       <td className="w-[40px]" />
       <td className="w-9" />
 
       <td colSpan={colSpan - 2} className="py-5 pr-6">
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mb-5 pb-4 border-b border-[var(--border)]">
+        {/* Tabs — bottom-border indicator style */}
+        <div className="flex items-center gap-0 mb-5 border-b border-[var(--border)]">
           {(["details", "sections", "branches", "files", "requirements", "proposal", "history"] as const).map(t => {
             const label =
               t === "details"      ? "Details"
@@ -750,10 +750,10 @@ function ExpandedRow({
                 key={t}
                 onClick={e => { e.stopPropagation(); handleTabChange(t) }}
                 className={cn(
-                  "relative px-3 py-1.5 text-[12px] font-semibold rounded-lg transition-all select-none flex items-center gap-1.5",
+                  "relative px-3.5 py-2.5 text-[12px] font-medium transition-colors select-none flex items-center gap-1.5 -mb-px border-b-2",
                   active
-                    ? "bg-indigo-600 text-white border border-indigo-600"
-                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 border border-transparent",
+                    ? "text-[var(--foreground)] border-indigo-500 font-semibold"
+                    : "text-[var(--muted-foreground)] border-transparent hover:text-[var(--foreground)] hover:border-[var(--border)]",
                 )}
               >
                 {t === "sections"     && <Tag          className="size-3" />}
@@ -771,36 +771,36 @@ function ExpandedRow({
         {/* ── Details tab ── */}
         {tab === "details" && (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <DetailBlock label="Description" icon={<ClipboardList className="size-3.5" />}>
+            <DetailBlock label="Description" icon={<ClipboardList className="size-3" />}>
               <p className="text-[13px] leading-relaxed" style={{ color: "var(--foreground)" }}>
                 {survey.description || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
               </p>
             </DetailBlock>
-            <DetailBlock label="Customer" icon={<Building2 className="size-3.5" />}>
-              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+            <DetailBlock label="Customer" icon={<Building2 className="size-3" />}>
+              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {survey.customer.name ?? `#${survey.customer.id}`}
               </p>
             </DetailBlock>
-            <DetailBlock label="Surveyor" icon={<User className="size-3.5" />}>
-              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+            <DetailBlock label="Surveyor" icon={<User className="size-3" />}>
+              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {survey.surveyor.name ?? survey.surveyor.email}
               </p>
               {survey.surveyor.name && (
-                <p className="text-[12px] mt-1" style={{ color: "var(--muted-foreground)" }}>{survey.surveyor.email}</p>
+                <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{survey.surveyor.email}</p>
               )}
             </DetailBlock>
-            <DetailBlock label="Date" icon={<Calendar className="size-3.5" />}>
-              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+            <DetailBlock label="Date" icon={<Calendar className="size-3" />}>
+              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {new Date(survey.date).toLocaleDateString("el-GR")}
               </p>
             </DetailBlock>
             <DetailBlock label="Status">
-              <span className={cn("inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold border", STATUS_STYLES[survey.status] ?? STATUS_STYLES.DRAFT)}>
+              <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium border", STATUS_STYLES[survey.status] ?? STATUS_STYLES.DRAFT)}>
                 {STATUS_LABELS[survey.status] ?? survey.status}
               </span>
             </DetailBlock>
             <DetailBlock label="Last Updated">
-              <p className="text-[14px] font-semibold" style={{ color: "var(--foreground)" }}>
+              <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {new Date(survey.updatedAt).toLocaleDateString("el-GR")}
               </p>
             </DetailBlock>
@@ -809,7 +809,7 @@ function ExpandedRow({
 
         {/* ── Sections tab ── */}
         {tab === "sections" && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {survey.sections.length === 0 ? (
               <p className="text-[13px] py-4" style={{ color: "var(--muted-foreground)" }}>No sections selected.</p>
             ) : survey.sections.map(s => {
@@ -818,7 +818,6 @@ function ExpandedRow({
               const allDone  = hasStats && stats.answered === stats.total
               const started  = hasStats && stats.answered > 0 && !allDone
 
-              // Most recent invitation for this section
               const sectionInvites = invitations.filter(i => i.sectionKey === s)
               const completed = sectionInvites.find(i => i.completedAt !== null)
               const pending   = !completed && sectionInvites.find(
@@ -829,38 +828,38 @@ function ExpandedRow({
                 <div
                   key={s}
                   className={cn(
-                    "rounded-xl border transition-colors",
+                    "rounded-lg border transition-colors",
                     completed
-                      ? "border-emerald-600/50 bg-emerald-950/50"
+                      ? "border-emerald-500/25 bg-emerald-500/5"
                       : allDone
-                      ? "border-emerald-700/40 bg-emerald-950/30"
-                      : "border-zinc-700/60 bg-zinc-900/60",
+                      ? "border-emerald-500/20 bg-emerald-500/[3%]"
+                      : "border-[var(--border)] bg-[var(--background)]",
                   )}
                 >
                   {/* Main row */}
-                  <div className="flex items-center gap-3 px-4 py-3.5">
+                  <div className="flex items-center gap-3 px-4 py-3">
                     <div className={cn(
-                      "size-8 rounded-lg flex items-center justify-center shrink-0",
+                      "size-7 rounded-md border flex items-center justify-center shrink-0",
                       completed || allDone
-                        ? "bg-emerald-600 text-white"
-                        : "bg-indigo-600 text-white",
+                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-500"
+                        : SECTION_BADGE_STYLES[s] ?? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
                     )}>
-                      {(completed || allDone) ? <Check className="size-4" strokeWidth={2.5} /> : SECTION_ICONS[s]}
+                      {(completed || allDone) ? <Check className="size-3.5" strokeWidth={2.5} /> : SECTION_ICONS[s]}
                     </div>
 
-                    <p className="text-[14px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
+                    <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
                       {SECTION_LABELS[s] ?? s}
                     </p>
 
                     {/* Q&A progress badge */}
                     {hasStats && (
                       <span className={cn(
-                        "text-[12px] font-bold px-3 py-1 rounded-full tabular-nums",
+                        "text-[11px] font-semibold px-2 py-0.5 rounded-full ring-1 ring-inset tabular-nums",
                         allDone
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/25"
                           : started
-                          ? "bg-amber-500 text-white"
-                          : "bg-zinc-700 text-zinc-300",
+                          ? "bg-amber-500/10 text-amber-400 ring-amber-500/25"
+                          : "bg-[var(--muted)]/50 text-[var(--muted-foreground)] ring-[var(--border)]",
                       )}>
                         {stats.answered}/{stats.total}
                       </span>
@@ -868,58 +867,66 @@ function ExpandedRow({
 
                     {/* Invitation status badge */}
                     {completed && (
-                      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1 rounded-full bg-emerald-600 text-white">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ring-1 ring-inset bg-emerald-500/10 text-emerald-400 ring-emerald-500/25">
                         <Lock className="size-3" /> Customer submitted
                       </span>
                     )}
                     {pending && !completed && (
-                      <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1 rounded-full bg-amber-500 text-white">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ring-1 ring-inset bg-amber-500/10 text-amber-400 ring-amber-500/25">
                         <Clock className="size-3" /> Awaiting response
                       </span>
                     )}
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); setWizardSection(s) }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-[12px] font-semibold text-white transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
+                        style={{ color: "var(--foreground)" }}
                       >
-                        <PlayCircle className="size-3.5" /> Fill out
+                        <PlayCircle className="size-3.5 text-indigo-400" /> Fill out
                       </button>
                       <button
                         type="button"
                         onClick={e => { e.stopPropagation(); setInviteSection(s) }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 px-3 py-1.5 text-[12px] font-semibold text-zinc-100 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
+                        style={{ color: "var(--foreground)" }}
                       >
-                        <Mail className="size-3.5" /> Send to customer
+                        <Mail className="size-3.5 text-violet-400" /> Send to customer
                       </button>
                     </div>
                   </div>
 
                   {/* Completion detail strip */}
                   {completed && (
-                    <div className="flex items-center gap-2 px-4 py-2.5 border-t border-emerald-600/30 bg-emerald-950/40 rounded-b-xl">
-                      <UserCheck className="size-3.5 text-emerald-400 shrink-0" />
-                      <p className="text-[12px] text-emerald-200">
-                        Submitted by <span className="font-bold text-white">{completed.email}</span>
+                    <div className="flex items-center gap-2 px-4 pb-2.5 pt-1 border-t border-emerald-500/10">
+                      <UserCheck className="size-3.5 text-emerald-500 shrink-0" />
+                      <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                        Submitted by{" "}
+                        <span className="font-semibold text-emerald-400">{completed.email}</span>
                         {" · "}
-                        {new Date(completed.completedAt!).toLocaleDateString("el-GR", {
-                          day: "2-digit", month: "short", year: "numeric",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
+                        <span style={{ color: "var(--foreground)" }}>
+                          {new Date(completed.completedAt!).toLocaleDateString("el-GR", {
+                            day: "2-digit", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </span>
                       </p>
                     </div>
                   )}
                   {pending && !completed && (
-                    <div className="flex items-center gap-2 px-4 py-2.5 border-t border-amber-500/30 bg-amber-950/40 rounded-b-xl">
-                      <Clock className="size-3.5 text-amber-400 shrink-0" />
-                      <p className="text-[12px] text-amber-200">
-                        Link sent to <span className="font-bold text-white">{pending.email}</span>
+                    <div className="flex items-center gap-2 px-4 pb-2.5 pt-1 border-t border-amber-500/10">
+                      <Clock className="size-3.5 text-amber-500 shrink-0" />
+                      <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                        Link sent to{" "}
+                        <span className="font-semibold text-amber-400">{pending.email}</span>
                         {" · expires "}
-                        {new Date(pending.expiresAt).toLocaleDateString("el-GR", {
-                          day: "2-digit", month: "short", year: "numeric",
-                        })}
+                        <span style={{ color: "var(--foreground)" }}>
+                          {new Date(pending.expiresAt).toLocaleDateString("el-GR", {
+                            day: "2-digit", month: "short", year: "numeric",
+                          })}
+                        </span>
                       </p>
                     </div>
                   )}
@@ -1006,12 +1013,12 @@ function ExpandedRow({
                   <p className="text-[14px] font-semibold truncate" style={{ color: "var(--foreground)" }}>{f.name}</p>
                   <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                     {f.type && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ring-1 ring-inset bg-indigo-500/10 text-indigo-400 ring-indigo-500/20">
                         {f.type}
                       </span>
                     )}
                     {f.section && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ring-1 ring-inset bg-amber-500/10 text-amber-400 ring-amber-500/20">
                         {SECTION_LABELS[f.section] ?? f.section}
                       </span>
                     )}
@@ -1112,25 +1119,25 @@ function ExpandedRow({
                   {Object.entries(bySection).map(([sec, entries]) => (
                     <div key={sec}>
                       {/* Section header */}
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="size-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-[var(--border)]">
+                        <span className={cn("shrink-0", SECTION_BADGE_STYLES[sec]?.split(" ").find(c => c.startsWith("text-")) ?? "text-indigo-400")}>
                           {SECTION_ICONS[sec]}
-                        </div>
-                        <p className="text-[13px] font-bold uppercase tracking-widest text-zinc-200">
+                        </span>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
                           {SECTION_LABELS[sec] ?? sec}
                         </p>
                       </div>
 
                       {/* Entries */}
-                      <div className="space-y-1 border-l-2 border-indigo-500/20 pl-4 ml-3">
+                      <div className="space-y-0.5 border-l border-[var(--border)] pl-4 ml-1">
                         {entries.map(h => (
-                          <div key={h.id} className="flex items-start gap-3 py-2 rounded-r-lg px-2 hover:bg-[var(--muted)]/20 transition-colors">
+                          <div key={h.id} className="flex items-start gap-3 py-2 rounded-r px-2 hover:bg-[var(--muted)]/30 transition-colors">
                             {/* Who badge */}
                             <span className={cn(
-                              "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                              "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
                               h.changedByType === "CUSTOMER"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-indigo-600 text-white",
+                                ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/25"
+                                : "bg-indigo-500/10 text-indigo-400 ring-indigo-500/25",
                             )}>
                               {h.changedByType === "CUSTOMER" ? <UserCheck className="size-3" /> : <User className="size-3" />}
                               {h.changedByType === "CUSTOMER" ? "Customer" : "Admin"}
@@ -1176,8 +1183,8 @@ function ExpandedRow({
 
 function DetailBlock({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-700/70 bg-zinc-900/70 px-4 py-3.5">
-      <p className="text-[11px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5 text-zinc-400">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-widest mb-1.5 flex items-center gap-1.5" style={{ color: "var(--muted-foreground)" }}>
         {icon}{label}
       </p>
       {children}
