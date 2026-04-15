@@ -1017,6 +1017,7 @@ model SiteSurvey {
   results           SurveyResult[]
   clientRequirements ClientRequirement[]
   proposal          SurveyProposal?
+  invitations       SurveyInvitation[]
 
   customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   surveyor  User     @relation(fields: [surveyorId], references: [id])
@@ -1025,6 +1026,24 @@ model SiteSurvey {
   @@index([surveyorId])
   @@index([status])
   @@index([date])
+}
+
+// ─── Survey Invitations (customer-facing questionnaire links) ─────────────────
+
+model SurveyInvitation {
+  id          Int       @id @default(autoincrement())
+  surveyId    Int
+  sectionKey  String    @db.VarChar(50)   // lowercase UI key: hardware_network, software, etc.
+  token       String    @unique @db.VarChar(64)
+  email       String    @db.VarChar(300)
+  expiresAt   DateTime
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  survey SiteSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([surveyId])
 }
 
 // ─── Survey Question Library (Master Template) ────────────────────────────────

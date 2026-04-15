@@ -13,6 +13,7 @@ export const proxy = auth((req) => {
 
   if (pathname.startsWith("/api/")) return NextResponse.next()
   if (pathname === "/login" || pathname.startsWith("/login/")) return NextResponse.next()
+  if (pathname.startsWith("/survey-invite/")) return NextResponse.next()
   if (pathname === "/access-denied" || pathname.startsWith("/access-denied/")) {
     return NextResponse.next()
   }

@@ -8,7 +8,7 @@ import {
   ChevronUp, ChevronDown, ChevronsUpDown, Columns3, Check,
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
-  PlayCircle, FileBarChart2, ListChecks, X, Sparkles, Send,
+  PlayCircle, FileBarChart2, ListChecks, X, Sparkles, Send, Mail,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
@@ -20,6 +20,7 @@ import { SurveyQuestionsWizard } from "./survey-questions-wizard"
 import { SiteSurveyReportModal } from "./site-survey-report-modal"
 import { SurveyProposalModal } from "./survey-proposal-modal"
 import { SurveySendMailDialog } from "./survey-send-mail-dialog"
+import { SurveyInviteDialog } from "./survey-invite-dialog"
 import type { SurveySection, SurveyStatus } from "@/app/actions/site-survey"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -618,6 +619,7 @@ function ExpandedRow({
   const [deletingId,   setDeletingId]   = useState<number | null>(null)
   const [wizardSection, setWizardSection] = useState<string | null>(null)
   const [sectionStats, setSectionStats] = useState<Record<string, { answered: number; total: number }>>({})
+  const [inviteSection, setInviteSection] = useState<string | null>(null)
 
   async function loadSectionStats() {
     try {
@@ -770,15 +772,13 @@ function ExpandedRow({
               const started  = hasStats && stats.answered > 0 && !allDone
 
               return (
-                <button
+                <div
                   key={s}
-                  type="button"
-                  onClick={e => { e.stopPropagation(); setWizardSection(s) }}
                   className={cn(
-                    "w-full flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors group text-left",
+                    "w-full flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
                     allDone
-                      ? "border-emerald-500/30 bg-emerald-500/[3%] hover:bg-emerald-500/[5%]"
-                      : "border-[var(--border)] bg-[var(--muted)]/10 hover:bg-indigo-500/5 hover:border-indigo-500/30",
+                      ? "border-emerald-500/30 bg-emerald-500/[3%]"
+                      : "border-[var(--border)] bg-[var(--muted)]/10",
                   )}
                 >
                   <div className={cn(
@@ -804,10 +804,26 @@ function ExpandedRow({
                       {stats.answered}/{stats.total}
                     </span>
                   )}
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
-                    <PlayCircle className="size-3.5" /> Fill out
-                  </span>
-                </button>
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setWizardSection(s) }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-400 transition-colors"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      <PlayCircle className="size-3" /> Fill out
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setInviteSection(s) }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-[11px] font-semibold hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 transition-colors"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      <Mail className="size-3" /> Send to customer
+                    </button>
+                  </div>
+                </div>
               )
             })}
           </div>
@@ -821,6 +837,16 @@ function ExpandedRow({
           surveyName={survey.name}
           sectionKey={wizardSection ?? ""}
           sectionLabel={SECTION_LABELS[wizardSection ?? ""] ?? wizardSection ?? ""}
+        />
+
+        {/* ── Customer invite dialog ── */}
+        <SurveyInviteDialog
+          open={inviteSection !== null}
+          onClose={() => setInviteSection(null)}
+          surveyId={survey.id}
+          surveyName={survey.name}
+          sectionKey={inviteSection ?? ""}
+          sectionLabel={SECTION_LABELS[inviteSection ?? ""] ?? inviteSection ?? ""}
         />
 
         {/* ── Branches tab ── */}
