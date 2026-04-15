@@ -9,8 +9,13 @@ export default async function SiteSurveyPage() {
     db.siteSurvey.findMany({
       orderBy: { date: "desc" },
       include: {
-        customer: { select: { id: true, name: true } },
-        surveyor: { select: { id: true, name: true, email: true } },
+        customer:    { select: { id: true, name: true } },
+        surveyor:    { select: { id: true, name: true, email: true } },
+        invitations: {
+          where:  { completedAt: { not: null } },
+          select: { sectionKey: true, email: true, completedAt: true },
+          orderBy: { completedAt: "desc" },
+        },
       },
     }),
     db.siteSurvey.count(),
@@ -26,11 +31,15 @@ export default async function SiteSurveyPage() {
 
   const rows = surveys.map((s) => ({
     ...s,
-    date: s.date.toISOString(),
-    createdAt: s.createdAt.toISOString(),
-    updatedAt: s.updatedAt.toISOString(),
-    branchIds: s.branchIds as number[],
-    sections: s.sections as string[],
+    date:        s.date.toISOString(),
+    createdAt:   s.createdAt.toISOString(),
+    updatedAt:   s.updatedAt.toISOString(),
+    branchIds:   s.branchIds as number[],
+    sections:    s.sections as string[],
+    invitations: s.invitations.map(i => ({
+      ...i,
+      completedAt: i.completedAt!.toISOString(),
+    })),
   }))
 
   return (

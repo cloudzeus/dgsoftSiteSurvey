@@ -9,7 +9,7 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
   PlayCircle, FileBarChart2, ListChecks, X, Sparkles, Send, Mail,
-  Lock, Clock, UserCheck,
+  Lock, Clock, UserCheck, History,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
@@ -40,6 +40,7 @@ export interface SurveyTableRow {
   updatedAt: string
   customer: { id: number; name: string | null }
   surveyor: { id: string; name: string | null; email: string }
+  invitations: { sectionKey: string; email: string; completedAt: string }[]
 }
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ type SurveyFileRow = {
 
 // ─── Expanded row ─────────────────────────────────────────────────────────────
 
-type ExpandedTab = "details" | "sections" | "branches" | "files" | "requirements" | "proposal"
+type ExpandedTab = "details" | "sections" | "branches" | "files" | "requirements" | "proposal" | "history"
 
 type ClientRequirementRow = {
   id: number; surveyId: number; section: string; title: string
@@ -628,6 +629,28 @@ function ExpandedRow({
   const [inviteSection, setInviteSection] = useState<string | null>(null)
   const [invitations,   setInvitations]   = useState<InvitationRow[]>([])
 
+  type HistoryEntry = {
+    id: number
+    changedBy: string
+    changedByType: string
+    answerValue: string | null
+    createdAt: string
+    question: { key: string; label: string; section: string }
+  }
+  const [historyRows,    setHistoryRows]    = useState<HistoryEntry[] | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  async function loadHistory() {
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`/api/site-surveys/${survey.id}/history`)
+      if (!res.ok) return
+      const { history } = await res.json() as { history: HistoryEntry[] }
+      setHistoryRows(history)
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false) }
+  }
+
   async function loadInvitations() {
     try {
       const res = await fetch(`/api/site-surveys/${survey.id}/invitations`)
@@ -689,7 +712,8 @@ function ExpandedRow({
 
   function handleTabChange(t: ExpandedTab) {
     setTab(t)
-    if (t === "files" && files === null) loadFiles()
+    if (t === "files"   && files === null)       loadFiles()
+    if (t === "history" && historyRows === null)  loadHistory()
   }
 
   async function handleDeleteFile(fileId: number) {
@@ -711,13 +735,14 @@ function ExpandedRow({
       <td colSpan={colSpan - 2} className="py-4 pr-6">
         {/* Tabs */}
         <div className="flex items-center gap-0.5 mb-4 border-b border-[var(--border)]">
-          {(["details", "sections", "branches", "files", "requirements", "proposal"] as const).map(t => {
+          {(["details", "sections", "branches", "files", "requirements", "proposal", "history"] as const).map(t => {
             const label =
               t === "details"      ? "Details"
               : t === "sections"   ? `Sections (${survey.sections.length})`
               : t === "branches"   ? `Branches (${survey.branchIds.length})`
               : t === "files"      ? `Files${files ? ` (${files.length})` : ""}`
               : t === "proposal"   ? "Proposal"
+              : t === "history"    ? "History"
               : "Requirements"
             return (
               <button
@@ -733,6 +758,7 @@ function ExpandedRow({
                 {t === "files"        && <Paperclip    className="size-3" />}
                 {t === "requirements" && <ListChecks   className="size-3" />}
                 {t === "proposal"     && <FileText     className="size-3" />}
+                {t === "history"      && <History      className="size-3" />}
                 {label}
                 {tab === t && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-indigo-500" />}
               </button>
@@ -915,6 +941,11 @@ function ExpandedRow({
           surveyName={survey.name}
           sectionKey={wizardSection ?? ""}
           sectionLabel={SECTION_LABELS[wizardSection ?? ""] ?? wizardSection ?? ""}
+          customerCompletedBy={
+            wizardSection
+              ? invitations.find(i => i.sectionKey === wizardSection && i.completedAt !== null)?.email
+              : undefined
+          }
         />
 
         {/* ── Customer invite dialog ── */}
@@ -1044,6 +1075,93 @@ function ExpandedRow({
             >
               <FileText className="size-3.5" /> Open Proposal
             </button>
+          </div>
+        )}
+
+        {/* ── History tab ── */}
+        {tab === "history" && (
+          <div onClick={e => e.stopPropagation()}>
+            {historyLoading && (
+              <div className="flex items-center gap-2 py-8 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                <Loader2 className="size-3.5 animate-spin" /> Loading history…
+              </div>
+            )}
+
+            {!historyLoading && historyRows !== null && historyRows.length === 0 && (
+              <div className="flex items-center gap-2.5 py-8 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                <History className="size-3.5 shrink-0" />
+                No changes recorded yet.
+              </div>
+            )}
+
+            {!historyLoading && historyRows && historyRows.length > 0 && (() => {
+              // Group by section
+              const bySection: Record<string, typeof historyRows> = {}
+              for (const h of historyRows) {
+                const sec = h.question.section.toLowerCase()
+                if (!bySection[sec]) bySection[sec] = []
+                bySection[sec].push(h)
+              }
+              return (
+                <div className="space-y-4">
+                  {Object.entries(bySection).map(([sec, entries]) => (
+                    <div key={sec}>
+                      {/* Section header */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={cn("size-5 rounded border flex items-center justify-center", "bg-indigo-500/10 border-indigo-500/20 text-indigo-400")}>
+                          {SECTION_ICONS[sec]}
+                        </div>
+                        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
+                          {SECTION_LABELS[sec] ?? sec}
+                        </p>
+                      </div>
+
+                      {/* Entries */}
+                      <div className="space-y-1 ml-1 border-l-2 border-[var(--border)] pl-4">
+                        {entries.map(h => (
+                          <div key={h.id} className="flex items-start gap-3 py-1.5">
+                            {/* Who badge */}
+                            <span className={cn(
+                              "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold border",
+                              h.changedByType === "CUSTOMER"
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+                            )}>
+                              {h.changedByType === "CUSTOMER" ? <UserCheck className="size-2.5" /> : <User className="size-2.5" />}
+                              {h.changedByType === "CUSTOMER" ? "Customer" : "Admin"}
+                            </span>
+
+                            {/* Detail */}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-medium truncate" style={{ color: "var(--foreground)" }}>
+                                {h.question.label}
+                              </p>
+                              <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                                {h.changedBy}
+                                {h.answerValue
+                                  ? <> · <span style={{ color: "var(--foreground)" }}>
+                                      {h.answerValue.length > 60 ? h.answerValue.slice(0, 60) + "…" : h.answerValue}
+                                    </span></>
+                                  : " · (cleared)"
+                                }
+                              </p>
+                            </div>
+
+                            {/* Time */}
+                            <span className="shrink-0 text-[10px] tabular-nums" style={{ color: "var(--muted-foreground)" }}>
+                              {new Date(h.createdAt).toLocaleString("el-GR", {
+                                day: "2-digit", month: "short",
+                                hour: "2-digit", minute: "2-digit",
+                              })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         )}
       </td>
@@ -1250,11 +1368,24 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
         return (
           <td key="sections" className="px-3 py-3">
             <div className="flex flex-wrap gap-1">
-              {s.sections.map(sec => (
-                <span key={sec} className={cn("inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border", SECTION_BADGE_STYLES[sec] ?? "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]")}>
-                  {SECTION_ICONS[sec]}{SECTION_LABELS[sec] ?? sec}
-                </span>
-              ))}
+              {s.sections.map(sec => {
+                const customerDone = s.invitations?.some(i => i.sectionKey === sec)
+                return (
+                  <span
+                    key={sec}
+                    title={customerDone ? `Customer submitted this section` : undefined}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border",
+                      customerDone
+                        ? "bg-emerald-500/12 text-emerald-400 border-emerald-500/25"
+                        : SECTION_BADGE_STYLES[sec] ?? "bg-[var(--muted)] border-[var(--border)] text-[var(--muted-foreground)]",
+                    )}
+                  >
+                    {customerDone ? <Lock className="size-2.5" /> : SECTION_ICONS[sec]}
+                    {SECTION_LABELS[sec] ?? sec}
+                  </span>
+                )
+              })}
             </div>
           </td>
         )

@@ -31,8 +31,13 @@ export async function GET(req: Request) {
       take,
       skip,
       include: {
-        customer: { select: { id: true, name: true } },
-        surveyor: { select: { id: true, name: true, email: true } },
+        customer:    { select: { id: true, name: true } },
+        surveyor:    { select: { id: true, name: true, email: true } },
+        invitations: {
+          where:  { completedAt: { not: null } },
+          select: { sectionKey: true, email: true, completedAt: true },
+          orderBy: { completedAt: "desc" },
+        },
       },
     }),
     db.siteSurvey.count({ where }),

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useTransition } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import {
   X, Loader2, Save, CheckSquare, Square, Check,
-  Plus, Trash2, Pencil, MapPin, Hash, Cpu, Wifi,
+  Plus, Trash2, Pencil, MapPin, Hash, Cpu, Wifi, AlertTriangle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Btn } from "@/components/ui/btn"
@@ -41,6 +41,7 @@ interface Props {
   surveyName: string
   sectionKey: string   // lowercase UI key: hardware_network, software, etc.
   sectionLabel: string
+  customerCompletedBy?: string // email of customer who already submitted this section
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -632,7 +633,7 @@ function DeviceField({
 // ─── Main wizard ──────────────────────────────────────────────────────────────
 
 export function SurveyQuestionsWizard({
-  open, onClose, surveyId, surveyName, sectionKey, sectionLabel,
+  open, onClose, surveyId, surveyName, sectionKey, sectionLabel, customerCompletedBy,
 }: Props) {
   const [questions,  setQuestions]  = useState<Question[]>([])
   const [answers,    setAnswers]    = useState<Record<string, string>>({})
@@ -752,6 +753,20 @@ export function SurveyQuestionsWizard({
               </button>
             </Dialog.Close>
           </div>
+
+          {/* Customer-submitted warning banner */}
+          {customerCompletedBy && (
+            <div className="shrink-0 mx-6 mt-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
+              <AlertTriangle className="size-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[12px] font-semibold text-amber-400">Customer already submitted this section</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                  <span className="font-medium" style={{ color: "var(--foreground)" }}>{customerCompletedBy}</span> filled
+                  in this questionnaire. Any changes you save here will overwrite their answers and be recorded in the history.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Progress bar */}
           {!loading && questions.length > 0 && (
