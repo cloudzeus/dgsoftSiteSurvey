@@ -14,7 +14,7 @@ import {
   createSoftwareVendor, updateSoftwareVendor,
   deleteSoftwareVendor, deleteSoftwareVendors,
   type SoftwareVendorRow,
-} from "@/app/(dashboard)/master-options/software-vendors/actions"
+} from "@/app/[locale]/(dashboard)/master-options/software-vendors/actions"
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 

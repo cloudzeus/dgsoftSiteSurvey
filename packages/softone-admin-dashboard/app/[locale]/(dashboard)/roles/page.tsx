@@ -6,12 +6,18 @@ import { RBAC_MATRIX_RESOURCES } from "@/lib/rbac-resources"
 
 export const metadata = { title: "Roles & Permissions" }
 
-export default async function RolesPage() {
+interface RolesPageProps {
+  params: Promise<{ locale: string }>
+}
+
+export default async function RolesPage({ params }: RolesPageProps) {
+  const { locale } = await params
+
   const session = await auth()
-  if (!session) redirect("/login")
+  if (!session) redirect(`/${locale}/login`)
 
   const currentUser = session.user as { role?: string }
-  if (currentUser.role !== "ADMIN") redirect("/dashboard")
+  if (currentUser.role !== "ADMIN") redirect(`/${locale}/dashboard`)
 
   const rows = await db.rolePermission.findMany({
     orderBy: [{ role: "asc" }, { resource: "asc" }],

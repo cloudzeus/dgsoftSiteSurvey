@@ -59,41 +59,41 @@ const SECTION_ORDER = ["HARDWARE_NETWORK", "SOFTWARE", "WEB_ECOMMERCE", "COMPLIA
 const SECTION_META: Record<string, { icon: React.ReactNode; badge: string; border: string; iconBg: string }> = {
   HARDWARE_NETWORK: {
     icon:   <Cpu          className="size-3" />,
-    badge:  "bg-sky-500/10 text-sky-400 border-sky-500/20",
-    border: "border-l-sky-400",
-    iconBg: "bg-sky-500/10 border-sky-500/20 text-sky-400",
+    badge:  "bg-sky-950/70 text-sky-300 border-sky-800/50",
+    border: "border-l-sky-500/60",
+    iconBg: "bg-sky-950/70 border-sky-800/50 text-sky-300",
   },
   SOFTWARE: {
     icon:   <ClipboardList className="size-3" />,
-    badge:  "bg-violet-500/10 text-violet-400 border-violet-500/20",
-    border: "border-l-violet-400",
-    iconBg: "bg-violet-500/10 border-violet-500/20 text-violet-400",
+    badge:  "bg-violet-950/70 text-violet-300 border-violet-800/50",
+    border: "border-l-violet-500/60",
+    iconBg: "bg-violet-950/70 border-violet-800/50 text-violet-300",
   },
   WEB_ECOMMERCE: {
     icon:   <Globe        className="size-3" />,
-    badge:  "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    border: "border-l-blue-400",
-    iconBg: "bg-blue-500/10 border-blue-500/20 text-blue-400",
+    badge:  "bg-blue-950/70 text-blue-300 border-blue-800/50",
+    border: "border-l-blue-500/60",
+    iconBg: "bg-blue-950/70 border-blue-800/50 text-blue-300",
   },
   COMPLIANCE: {
     icon:   <ShieldCheck  className="size-3" />,
-    badge:  "bg-rose-500/10 text-rose-400 border-rose-500/20",
-    border: "border-l-rose-400",
-    iconBg: "bg-rose-500/10 border-rose-500/20 text-rose-400",
+    badge:  "bg-rose-950/70 text-rose-300 border-rose-800/50",
+    border: "border-l-rose-500/60",
+    iconBg: "bg-rose-950/70 border-rose-800/50 text-rose-300",
   },
   IOT_AI: {
     icon:   <Bot          className="size-3" />,
-    badge:  "bg-teal-500/10 text-teal-400 border-teal-500/20",
-    border: "border-l-teal-400",
-    iconBg: "bg-teal-500/10 border-teal-500/20 text-teal-400",
+    badge:  "bg-teal-950/70 text-teal-300 border-teal-800/50",
+    border: "border-l-teal-500/60",
+    iconBg: "bg-teal-950/70 border-teal-800/50 text-teal-300",
   },
 }
 
 const PROPOSAL_STATUSES = [
-  { value: "DRAFT",    label: "Draft",    icon: <Clock className="size-3" />,       style: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" },
-  { value: "SENT",     label: "Sent",     icon: <Send className="size-3" />,        style: "bg-sky-500/10 text-sky-400 border-sky-500/20" },
-  { value: "ACCEPTED", label: "Accepted", icon: <CheckCircle2 className="size-3" />, style: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
-  { value: "REJECTED", label: "Rejected", icon: <XCircle className="size-3" />,    style: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
+  { value: "DRAFT",    label: "Draft",    icon: <Clock className="size-3" />,       style: "bg-zinc-800/80 text-zinc-300 border-zinc-700/60" },
+  { value: "SENT",     label: "Sent",     icon: <Send className="size-3" />,        style: "bg-sky-950/70 text-sky-300 border-sky-800/50" },
+  { value: "ACCEPTED", label: "Accepted", icon: <CheckCircle2 className="size-3" />, style: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50" },
+  { value: "REJECTED", label: "Rejected", icon: <XCircle className="size-3" />,    style: "bg-rose-950/70 text-rose-300 border-rose-800/50" },
 ]
 
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ function AssigneeSelector({
             {selectedUsers.map(u => (
               <span
                 key={u.id}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 text-[11px] font-medium"
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 px-2 py-0.5 text-[11px] font-medium"
               >
                 <User className="size-2.5" />
                 {u.name ?? u.email}
@@ -629,7 +629,7 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
                         type="button"
                         onClick={generateDescription}
                         disabled={generatingDesc}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[11px] font-semibold text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-800/50 bg-violet-950/70 px-2.5 py-1 text-[11px] font-semibold text-violet-300 hover:bg-violet-900/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                       >
                         {generatingDesc
                           ? <Loader2 className="size-3 animate-spin" />
@@ -710,7 +710,7 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
                                         type="button"
                                         onClick={() => generateResponse(req)}
                                         disabled={generatingReqId === req.id || generatingDesc}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-400 hover:bg-violet-500/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                                        className="inline-flex items-center gap-1 rounded-lg border border-violet-800/50 bg-violet-950/70 px-2 py-0.5 text-[10px] font-semibold text-violet-300 hover:bg-violet-900/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                       >
                                         {generatingReqId === req.id
                                           ? <Loader2 className="size-2.5 animate-spin" />
@@ -779,7 +779,7 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
                     type="button"
                     onClick={handleExport}
                     disabled={exporting}
-                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2 text-[12px] font-semibold text-emerald-400 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                    className="inline-flex items-center gap-2 rounded-xl border border-emerald-800/50 bg-emerald-950/70 px-3.5 py-2 text-[12px] font-semibold text-emerald-300 hover:bg-emerald-900/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
                     {exporting ? "Exporting…" : "Download Word"}

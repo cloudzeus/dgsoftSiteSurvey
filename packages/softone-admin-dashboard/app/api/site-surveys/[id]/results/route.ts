@@ -7,6 +7,7 @@ type Params = { params: Promise<{ id: string }> }
 
 // GET /api/site-surveys/:id/results
 // Returns all saved answers for a survey, keyed by question.key for easy form hydration.
+// Also includes metadata about who last filled the survey.
 export async function GET(req: Request, { params }: Params) {
   await assertApiAccess(req)
   const { id } = await params
@@ -17,12 +18,27 @@ export async function GET(req: Request, { params }: Params) {
     include: { question: { select: { key: true, section: true, type: true } } },
   })
 
+  // Get metadata about who filled the survey (latest history entry)
+  const latestHistory = await db.surveyResultHistory.findFirst({
+    where: { surveyId },
+    select: { changedBy: true, changedByType: true, createdAt: true },
+    orderBy: { createdAt: "desc" },
+  })
+
   // Shape: { [question.key]: answerValue }
   const byKey = Object.fromEntries(
     results.map((r) => [r.question.key, r.answerValue])
   )
 
-  return NextResponse.json({ results, byKey })
+  return NextResponse.json({
+    results,
+    byKey,
+    metadata: latestHistory ? {
+      filledBy: latestHistory.changedBy,
+      filledByType: latestHistory.changedByType, // "ADMIN" | "CUSTOMER"
+      filledAt: latestHistory.createdAt,
+    } : null,
+  })
 }
 
 // POST /api/site-surveys/:id/results

@@ -14,7 +14,7 @@ import {
   createDigitalTool, updateDigitalTool,
   deleteDigitalTool, deleteDigitalTools,
   type DigitalToolRow,
-} from "@/app/(dashboard)/master-options/digital-tools/actions"
+} from "@/app/[locale]/(dashboard)/master-options/digital-tools/actions"
 import type { DigitalToolType } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────

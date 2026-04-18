@@ -1,0 +1,419 @@
+{
+  "common": {
+    "language": "Γλώσσα",
+    "greek": "Ελληνικά",
+    "english": "English",
+    "close": "Κλείσιμο",
+    "save": "Αποθήκευση",
+    "delete": "Διαγραφή",
+    "edit": "Επεξεργασία",
+    "add": "Προσθήκη",
+    "cancel": "Ακύρωση",
+    "loading": "Φόρτωση...",
+    "error": "Σφάλμα",
+    "success": "Επιτυχία"
+  },
+  "navigation": {
+    "groups": {
+      "platform": "Πλατφόρμα",
+      "orchestration": "Ενορχήστρωση",
+      "siteSurvey": "Έρευνα Θέσης",
+      "masterOptions": "Κύριες Επιλογές",
+      "tools": "Εργαλεία",
+      "usersManagement": "Διαχείριση Χρηστών",
+      "liveRecords": "Ζωντανές Εγγραφές",
+      "settings": "Ρυθμίσεις"
+    },
+    "items": {
+      "overview": "Επισκόπηση",
+      "connections": "Συνδέσεις",
+      "entities": "Οντότητες",
+      "mappings": "Αντιστοιχίσεις",
+      "records": "Εγγραφές",
+      "jobs": "Εργασίες",
+      "monitoring": "Παρακολούθηση",
+      "allSurveys": "Όλες οι Έρευνες",
+      "customers": "Πελάτες",
+      "brands": "Μάρκες",
+      "assetTypes": "Τύποι Εξοπλισμού",
+      "softwareVendors": "Προμηθευτές Λογισμικού",
+      "softwareProducts": "Προϊόντα Λογισμικού",
+      "webPlatforms": "Πλατφόρμες Web",
+      "digitalTools": "Ψηφιακά Εργαλεία",
+      "iotCategories": "Κατηγορίες IoT",
+      "iotProducts": "Προϊόντα IoT",
+      "surveyQuestions": "Ερωτήσεις Έρευνας",
+      "vatLookup": "Αναζήτηση ΦΠΑ AADE",
+      "media": "Βιβλιοθήκη Πολυμέσων",
+      "import": "Εισαγωγή Excel",
+      "xmlFeeds": "XML Feeds",
+      "backups": "Αντίγραφα Ασφαλείας ΒΔ",
+      "users": "Χρήστες",
+      "roles": "Ρόλοι",
+      "settings": "Ρυθμίσεις",
+      "translations": "Μεταφράσεις"
+    },
+    "actions": {
+      "license": "Άδεια Χρήσης",
+      "signOut": "Αποσύνδεση",
+      "changeLanguage": "Αλλαγή Γλώσσας",
+      "collapseSidebar": "Σύμπτυξη πλαϊνής μπάρας",
+      "expandSidebar": "Επέκταση πλαϊνής μπάρας"
+    }
+  },
+  "survey": {
+    "title": "Έρευνες Θέσης",
+    "description": "Έρευνες θέσης και αξιολογήσεις σε ιστοσελίδες πελατών"
+  },
+  "translationsPage": {
+    "title": "Διαχείριση Μεταφράσεων",
+    "subtitle": "Επεξεργαστείτε τα κείμενα της εφαρμογής. Χρησιμοποιήστε το DeepSeek για αυτόματη μετάφραση.",
+    "searchPlaceholder": "Αναζήτηση κλειδιού ή περιεχομένου…",
+    "missingOnly": "Μόνο ελλιπή",
+    "translateAllMissing": "Μετάφραση όλων των ελλιπών (EN → EL)",
+    "saveChanges": "Αποθήκευση ({count})",
+    "translateFrom": "Μετάφραση από {from}",
+    "noSourceText": "Δεν υπάρχει κείμενο πηγής για μετάφραση",
+    "noResults": "Δεν βρέθηκαν κλειδιά",
+    "showing": "Εμφάνιση {filtered} από {total} κλειδιά",
+    "saved": "Αποθηκεύτηκαν {count} αλλαγές",
+    "bulkDone": "Μεταφράστηκαν {count} καταχωρήσεις",
+    "bulkErrorAt": "Σφάλμα στο {path}: {error}",
+    "colKey": "Κλειδί",
+    "locale": {
+      "el": "Ελληνικά",
+      "en": "English"
+    }
+  },
+  "siteSurveysTable": {
+    "columns": {
+      "name": "Έρευνα",
+      "customer": "Πελάτης",
+      "date": "Ημερομηνία",
+      "surveyor": "Αξιολογητής",
+      "sections": "Ενότητες",
+      "status": "Κατάσταση",
+      "createdAt": "Δημιουργήθηκε"
+    },
+    "search": "Αναζήτηση ερευνών, πελατών, αξιολογητών…",
+    "actions": {
+      "new": "Νέα Έρευνα",
+      "edit": "Επεξεργασία",
+      "delete": "Διαγραφή",
+      "viewReport": "Προβολή Αναφοράς",
+      "proposal": "Πρόταση",
+      "uploadFiles": "Μεταφόρτωση Αρχείων",
+      "sendMail": "Αποστολή Email",
+      "columns": "Στήλες",
+      "locked": "κλειδωμένο",
+      "clear": "Εκκαθάριση",
+      "selected": "{count} επιλεγμένα",
+      "rowsPerPage": "Γραμμές ανά σελίδα",
+      "rowsRange": "{from}–{to} από {total}",
+      "zeroSurveys": "0 έρευνες"
+    },
+    "status": {
+      "draft": "Πρόχειρο",
+      "scheduled": "Προγραμματισμένο",
+      "in_progress": "Σε Εξέλιξη",
+      "completed": "Ολοκληρώθηκε",
+      "cancelled": "Ακυρώθηκε"
+    },
+    "sections": {
+      "hardware_network": "Υλικό & Δίκτυο",
+      "software": "Λογισμικό",
+      "web_ecommerce": "Web & E-commerce",
+      "compliance": "Συμμόρφωση",
+      "iot_ai": "IoT & AI"
+    },
+    "tabs": {
+      "details": "Λεπτομέρειες",
+      "sections": "Ενότητες ({count})",
+      "branches": "Υποκαταστήματα ({count})",
+      "files": "Αρχεία",
+      "filesWithCount": "Αρχεία ({count})",
+      "requirements": "Απαιτήσεις",
+      "proposal": "Πρόταση",
+      "results": "Αποτελέσματα",
+      "history": "Ιστορικό"
+    },
+    "detailsTab": {
+      "description": "Περιγραφή",
+      "customer": "Πελάτης",
+      "surveyor": "Αξιολογητής",
+      "date": "Ημερομηνία",
+      "status": "Κατάσταση",
+      "lastUpdated": "Τελευταία Ενημέρωση"
+    },
+    "sectionsTab": {
+      "empty": "Δεν έχουν επιλεγεί ενότητες.",
+      "fillOut": "Συμπλήρωση",
+      "sendToCustomer": "Αποστολή στον πελάτη",
+      "removeSection": "Αφαίρεση ενότητας"
+    },
+    "branchesTab": {
+      "empty": "Όλα τα υποκαταστήματα / Κεντρικά — δεν έχουν επιλεγεί συγκεκριμένα υποκαταστήματα.",
+      "selected": "{count} υποκαταστήματα επιλεγμένα",
+      "selectedSingular": "{count} υποκατάστημα επιλεγμένο",
+      "branchPrefix": "Υποκ."
+    },
+    "filesTab": {
+      "loading": "Φόρτωση αρχείων…",
+      "empty": "Δεν έχουν μεταφορτωθεί αρχεία.",
+      "download": "Λήψη",
+      "delete": "Διαγραφή",
+      "upload": "Μεταφόρτωση αρχείου",
+      "uploadTitle": "Μεταφόρτωση Αρχείων Έρευνας"
+    },
+    "requirementsTab": {
+      "loading": "Φόρτωση απαιτήσεων…",
+      "emptyTitle": "Δεν υπάρχουν απαιτήσεις ακόμη",
+      "emptyHint": "Προσθέστε απαιτήσεις πελάτη ανά ενότητα",
+      "add": "Προσθήκη απαίτησης",
+      "editTitle": "Επεξεργασία Απαίτησης",
+      "newTitle": "Νέα Απαίτηση",
+      "sectionLabel": "Ενότητα",
+      "titleLabel": "Τίτλος",
+      "titlePlaceholder": "Τίτλος απαίτησης…",
+      "descriptionLabel": "Περιγραφή",
+      "descriptionPlaceholder": "Προαιρετική περιγραφή — ή χρησιμοποιήστε AI για αυτόματη δημιουργία στα Ελληνικά…",
+      "enterTitleFirst": "Εισάγετε πρώτα έναν τίτλο",
+      "generateWithAi": "Δημιουργία με AI",
+      "generating": "Δημιουργία…",
+      "generatingDescription": "Δημιουργία περιγραφής…",
+      "attachment": "Συνημμένο",
+      "replaceBelow": "Αντικατάσταση παρακάτω",
+      "chooseFile": "Επιλογή αρχείου",
+      "saving": "Αποθήκευση αλλαγών",
+      "adding": "Προσθήκη απαίτησης",
+      "edit": "Επεξεργασία",
+      "delete": "Διαγραφή",
+      "cancel": "Ακύρωση"
+    },
+    "proposalTab": {
+      "title": "Πρόταση",
+      "subtitle": "Δημιουργήστε ή επεξεργαστείτε την πρόταση για αυτήν την έρευνα",
+      "open": "Άνοιγμα Πρότασης"
+    },
+    "resultsTab": {
+      "loading": "Φόρτωση αποτελεσμάτων έρευνας…",
+      "noneTitle": "Δεν υπάρχουν διαθέσιμα αποτελέσματα",
+      "noneSubtitle": "Η έρευνα δεν έχει ολοκληρωθεί ακόμη",
+      "filledByCustomer": "Συμπληρώθηκε από τον Πελάτη",
+      "filledByAdmin": "Συμπληρώθηκε από Διαχειριστή",
+      "answered": "{answered}/{total} απαντημένες",
+      "noAnswer": "Χωρίς απάντηση",
+      "noDevicesRecorded": "Δεν καταχωρήθηκαν συσκευές",
+      "devices": "{count} συσκευές",
+      "devicesSingular": "{count} συσκευή",
+      "yes": "Ναι",
+      "no": "Όχι",
+      "brandModel": "Μάρκα / Μοντέλο",
+      "serial": "Σειριακός #",
+      "location": "Τοποθεσία",
+      "ip": "Διεύθυνση IP"
+    },
+    "historyTab": {
+      "loading": "Φόρτωση ιστορικού…",
+      "empty": "Δεν έχουν καταγραφεί αλλαγές ακόμη.",
+      "customer": "Πελάτης",
+      "admin": "Διαχειριστής",
+      "cleared": "εκκαθαρίστηκε"
+    },
+    "invitation": {
+      "customerSubmitted": "Υποβλήθηκε από πελάτη",
+      "awaitingResponse": "Αναμονή απάντησης",
+      "submittedBy": "Υποβλήθηκε από",
+      "linkSentTo": "Αποστολή συνδέσμου σε",
+      "expires": "λήγει",
+      "customerSubmittedTitle": "Ο πελάτης υπέβαλε αυτήν την ενότητα"
+    },
+    "empty": {
+      "noSurveys": "Δεν βρέθηκαν έρευνες"
+    }
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "Καλημέρα",
+      "afternoon": "Καλησπέρα",
+      "evening": "Καλό απόγευμα"
+    },
+    "subtitle": "{surveys} έρευνες · {customers} πελάτες · {users} μέλη ομάδας",
+    "cta": {
+      "newSurvey": "Νέα Έρευνα",
+      "customers": "Πελάτες"
+    },
+    "kpi": {
+      "customers": "Πελάτες",
+      "surveys": "Έρευνες Θέσης",
+      "proposals": "Προτάσεις",
+      "surveysSubtitle": "{count} ολοκληρωμένες",
+      "customersSubtitle": "+{count} αυτόν τον μήνα",
+      "proposalsSubtitle": "{accepted} αποδεκτές · {sent} σε αναμονή",
+      "winRate": "{rate}% κερδισμένες",
+      "activeBadge": "{count} ενεργές",
+      "deltaBadge": "{delta}% MoM"
+    },
+    "alert": {
+      "failedDeliveries": "{count} αποτυχημένες αποστολές απαιτούν προσοχή — εγγραφές pipeline δεν ήταν δυνατό να παραδοθούν.",
+      "review": "Έλεγχος"
+    },
+    "pipeline": {
+      "title": "Ροή Ερευνών",
+      "subtitle": "Κατανομή κατάστασης σε {total} έρευνες",
+      "viewAll": "Όλες",
+      "empty": "Δεν υπάρχουν έρευνες ακόμη",
+      "createFirst": "Δημιουργία πρώτης έρευνας"
+    },
+    "proposals": {
+      "title": "Προτάσεις",
+      "totalCount": "{count} σύνολο",
+      "winRate": "Ποσοστό Επιτυχίας",
+      "empty": "Δεν υπάρχουν προτάσεις ακόμη"
+    },
+    "recentSurveys": {
+      "title": "Πρόσφατες Έρευνες",
+      "subtitle": "Τελευταίες αξιολογήσεις πεδίου",
+      "viewAll": "Όλες",
+      "empty": "Δεν υπάρχουν έρευνες ακόμη"
+    },
+    "topCustomers": {
+      "title": "Κορυφαίοι Πελάτες",
+      "subtitle": "Με βάση τον αριθμό ερευνών",
+      "empty": "Δεν υπάρχουν δεδομένα ακόμη"
+    },
+    "recentProposals": {
+      "title": "Πρόσφατες Προτάσεις",
+      "subtitle": "Τελευταίες δημιουργημένες προτάσεις",
+      "viewAll": "Όλες",
+      "empty": "Δεν υπάρχουν προτάσεις ακόμη"
+    },
+    "quickAccess": {
+      "title": "Γρήγορη Πρόσβαση",
+      "newSurvey": "Νέα Έρευνα",
+      "customers": "Πελάτες",
+      "vatLookup": "Αναζήτηση ΦΠΑ/ΓΕΜΗ",
+      "media": "Βιβλιοθήκη Πολυμέσων",
+      "surveyQuestions": "Ερωτήσεις Έρευνας",
+      "import": "Εισαγωγή Excel"
+    },
+    "systemSection": {
+      "title": "Σύστημα & Ολοκλήρωση",
+      "subtitle": "Διαγνωστικά πλατφόρμας",
+      "expand": "Εμφάνιση",
+      "collapse": "Απόκρυψη"
+    },
+    "jobs": {
+      "title": "Εργασίες Pipeline",
+      "subtitle": "{count} ολοκληρώθηκαν σήμερα",
+      "viewAll": "Προβολή όλων",
+      "records": "{count} εγγραφές",
+      "empty": "Δεν υπάρχουν εργασίες"
+    },
+    "pipelineMetrics": {
+      "title": "Ολοκλήρωση Pipeline",
+      "connections": "Συνδέσεις",
+      "entities": "Οντότητες",
+      "pendingRecords": "Εκκρεμείς εγγραφές",
+      "failedDeliveries": "Αποτυχημένες αποστολές"
+    },
+    "systemStatus": {
+      "title": "Κατάσταση Συστήματος",
+      "subtitle": "Υγεία υποσυστημάτων με μια ματιά",
+      "allHealthy": "Όλα τα συστήματα λειτουργούν",
+      "attention": "Απαιτείται προσοχή",
+      "dlq": "Εκκρεμή DLQ",
+      "lastBackup": "Τελευταίο Αντίγραφο",
+      "never": "Ποτέ",
+      "activeFeeds": "Ενεργά XML Feeds",
+      "syncFailures": "Αποτυχίες Συγχρονισμού Σήμερα"
+    },
+    "syncActivity": {
+      "title": "Δραστηριότητα Συγχρονισμού",
+      "subtitle": "Πρόσφατες εργασίες ERP Softone",
+      "configure": "Διαμόρφωση",
+      "empty": "Δεν υπάρχουν εργασίες συγχρονισμού",
+      "status": {
+        "completed": "Ολοκληρώθηκε",
+        "partial": "Μερική",
+        "failed": "Απέτυχε"
+      }
+    },
+    "timeline": {
+      "title": "Χρονολόγιο Δραστηριοτήτων",
+      "subtitle": "Πρόσφατα γεγονότα στην πλατφόρμα",
+      "surveyType": "Έρευνα · {customer}",
+      "proposalType": "Πρόταση · {customer}",
+      "jobType": "Εργασία Pipeline · {trigger} · {records} εγγραφές"
+    },
+    "statsFooter": {
+      "teamMembers": "Μέλη Ομάδας",
+      "mediaFiles": "Αρχεία Πολυμέσων",
+      "activePipes": "Ενεργές Συνδέσεις"
+    },
+    "timeAgo": {
+      "justNow": "μόλις τώρα",
+      "minutes": "{count}λ πριν",
+      "hours": "{count}ω πριν",
+      "yesterday": "χθες",
+      "days": "{count}η πριν"
+    },
+    "surveyStatus": {
+      "draft": "Πρόχειρο",
+      "scheduled": "Προγραμματισμένο",
+      "in_progress": "Σε Εξέλιξη",
+      "completed": "Ολοκληρώθηκε",
+      "cancelled": "Ακυρώθηκε"
+    },
+    "proposalStatus": {
+      "draft": "Πρόχειρη",
+      "sent": "Στάλθηκε",
+      "accepted": "Αποδεκτή",
+      "rejected": "Απορρίφθηκε"
+    }
+  },
+  "surveyWizard": {
+    "loading": "Φόρτωση ερωτήσεων…",
+    "loadError": "Αποτυχία φόρτωσης ερωτήσεων",
+    "noQuestions": "Δεν έχουν οριστεί ερωτήσεις για αυτήν την ενότητα ακόμη.",
+    "noQuestionsHint": "Προσθέστε ερωτήσεις στις Κύριες Επιλογές → Ερωτήσεις Έρευνας.",
+    "progress": "Πρόοδος",
+    "answered": "{answered} / {total} απαντημένες",
+    "saveAnswers": "Αποθήκευση απαντήσεων",
+    "savedSuccessfully": "Αποθηκεύτηκε με επιτυχία",
+    "saveFailed": "Αποτυχία αποθήκευσης ({status})",
+    "customerSubmittedTitle": "Ο πελάτης έχει ήδη υποβάλει αυτήν την ενότητα",
+    "customerSubmittedBody": "συμπλήρωσε αυτό το ερωτηματολόγιο. Οποιεσδήποτε αλλαγές αποθηκεύσετε εδώ θα αντικαταστήσουν τις απαντήσεις του και θα καταγραφούν στο ιστορικό.",
+    "devicesRecorded": "{count} συσκευές καταχωρήθηκαν",
+    "devicesRecordedSingular": "{count} συσκευή καταχωρήθηκε",
+    "boolean": {
+      "yes": "Ναι",
+      "no": "Όχι",
+      "clear": "Εκκαθάριση"
+    },
+    "dropdown": {
+      "placeholder": "— Επιλέξτε —"
+    },
+    "device": {
+      "brand": "Μάρκα",
+      "brandPlaceholder": "π.χ. Fortinet",
+      "model": "Μοντέλο",
+      "modelPlaceholder": "π.χ. FortiGate 100F",
+      "modelDisabledPlaceholder": "Επιλέξτε πρώτα μάρκα",
+      "serial": "Σειριακός #",
+      "serialPlaceholder": "π.χ. FG100F1234",
+      "location": "Τοποθεσία",
+      "locationPlaceholder": "π.χ. Server Room A",
+      "ip": "Διεύθυνση IP",
+      "ipPlaceholder": "π.χ. 192.168.1.1",
+      "cancel": "Ακύρωση",
+      "saveDevice": "Αποθήκευση συσκευής",
+      "addDevice": "Προσθήκη συσκευής",
+      "searching": "Αναζήτηση…",
+      "noBrands": "Δεν βρέθηκαν μάρκες",
+      "noModelsForBrand": "Δεν υπάρχουν μοντέλα για {brand} ακόμη",
+      "addBrand": "Προσθήκη «{name}» ως νέας μάρκας",
+      "addModel": "Προσθήκη «{name}» στη μάρκα {brand}"
+    }
+  }
+}

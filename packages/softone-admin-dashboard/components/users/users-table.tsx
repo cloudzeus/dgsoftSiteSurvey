@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { Btn } from "@/components/ui/btn"
 import { useTablePrefs, PAGE_SIZES, type ColDef, type PageSize } from "@/hooks/use-table-prefs"
-import { createUser, updateUser, deleteUser, deleteUsers } from "@/app/(dashboard)/users/actions"
+import { createUser, updateUser, deleteUser, deleteUsers } from "@/app/[locale]/(dashboard)/users/actions"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

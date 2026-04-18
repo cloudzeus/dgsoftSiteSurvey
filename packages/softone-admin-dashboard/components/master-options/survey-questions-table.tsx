@@ -14,7 +14,7 @@ import { useTablePrefs, PAGE_SIZES, type ColDef, type PageSize } from "@/hooks/u
 import {
   createSurveyQuestion, updateSurveyQuestion, deleteSurveyQuestion, deleteSurveyQuestions,
   type SurveyQuestionRow,
-} from "@/app/(dashboard)/master-options/survey-questions/actions"
+} from "@/app/[locale]/(dashboard)/master-options/survey-questions/actions"
 import type { SurveySection, QuestionType } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,12 +31,12 @@ const SECTION_LABELS: Record<SurveySection, string> = {
 }
 
 const SECTION_COLORS: Record<SurveySection, { bg: string; fg: string }> = {
-  HARDWARE_NETWORK: { bg: "#dbeafe", fg: "#1d4ed8" },
-  SOFTWARE:         { bg: "#ede9fe", fg: "#6d28d9" },
-  WEB_ECOMMERCE:    { bg: "#d1fae5", fg: "#065f46" },
-  IOT_AI:           { bg: "#fef3c7", fg: "#92400e" },
-  COMPLIANCE:       { bg: "#ffe4e6", fg: "#9f1239" },
-  VOIP:             { bg: "#eff6ff", fg: "#1d4ed8" },
+  HARDWARE_NETWORK: { bg: "#0e1e2e", fg: "#7dd3fc" },
+  SOFTWARE:         { bg: "#1a1030", fg: "#c4b5fd" },
+  WEB_ECOMMERCE:    { bg: "#0a2018", fg: "#6ee7b7" },
+  IOT_AI:           { bg: "#0a1e1e", fg: "#5eead4" },
+  COMPLIANCE:       { bg: "#2a0e14", fg: "#fda4af" },
+  VOIP:             { bg: "#061a22", fg: "#67e8f9" },
 }
 
 const TYPES: QuestionType[] = ["TEXT", "BOOLEAN", "NUMBER", "DROPDOWN", "MULTI_SELECT", "DEVICE_LIST"]
@@ -51,12 +51,12 @@ const TYPE_LABELS: Record<QuestionType, string> = {
 }
 
 const TYPE_COLORS: Record<QuestionType, { bg: string; fg: string }> = {
-  TEXT:         { bg: "#f1f5f9", fg: "#475569" },
-  BOOLEAN:      { bg: "#fce7f3", fg: "#9d174d" },
-  NUMBER:       { bg: "#d1fae5", fg: "#065f46" },
-  DROPDOWN:     { bg: "#dbeafe", fg: "#1d4ed8" },
-  MULTI_SELECT: { bg: "#ede9fe", fg: "#6d28d9" },
-  DEVICE_LIST:  { bg: "#ecfdf5", fg: "#065f46" },
+  TEXT:         { bg: "#16202e", fg: "#94a3b8" },
+  BOOLEAN:      { bg: "#28101e", fg: "#f9a8d4" },
+  NUMBER:       { bg: "#0a2015", fg: "#86efac" },
+  DROPDOWN:     { bg: "#0e1a2e", fg: "#93c5fd" },
+  MULTI_SELECT: { bg: "#1a1030", fg: "#c4b5fd" },
+  DEVICE_LIST:  { bg: "#0a1e1e", fg: "#5eead4" },
 }
 
 const OPTIONS_SOURCE_HINTS = [
@@ -798,7 +798,7 @@ export function SurveyQuestionsTable({ initialQuestions }: { initialQuestions: S
                         title={q.optionsSource ?? q.options?.join(", ")}>
                         {q.optionsSource
                           ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
-                              style={{ background: "#dbeafe", color: "#1d4ed8" }}>{q.optionsSource}</span>
+                              style={{ background: "#0e1a2e", color: "#93c5fd" }}>{q.optionsSource}</span>
                           : q.options?.length
                             ? optionsLabel
                             : <span style={{ opacity: 0.4 }}>—</span>}
@@ -808,8 +808,8 @@ export function SurveyQuestionsTable({ initialQuestions }: { initialQuestions: S
                       <td className="px-4 py-3.5">
                         <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
                           style={q.isActive
-                            ? { background: "#d1fae5", color: "#065f46" }
-                            : { background: "var(--muted)", color: "var(--foreground-subtle)" }}>
+                            ? { background: "#0a2015", color: "#6ee7b7" }
+                            : { background: "#1a1f25", color: "#64748b" }}>
                           {q.isActive ? "Active" : "Hidden"}
                         </span>
                       </td>

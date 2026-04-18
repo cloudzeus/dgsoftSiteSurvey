@@ -14,7 +14,7 @@ import {
   createIotCategory, updateIotCategory,
   deleteIotCategory, deleteIotCategories,
   type IotCategoryRow,
-} from "@/app/(dashboard)/master-options/iot-categories/actions"
+} from "@/app/[locale]/(dashboard)/master-options/iot-categories/actions"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

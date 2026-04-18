@@ -13,7 +13,7 @@ import { useTablePrefs, PAGE_SIZES, type ColDef, type PageSize } from "@/hooks/u
 import {
   createAssetType, updateAssetType, deleteAssetType, deleteAssetTypes,
   type AssetTypeRow,
-} from "@/app/(dashboard)/master-options/asset-types/actions"
+} from "@/app/[locale]/(dashboard)/master-options/asset-types/actions"
 import type { MasterCategory } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────

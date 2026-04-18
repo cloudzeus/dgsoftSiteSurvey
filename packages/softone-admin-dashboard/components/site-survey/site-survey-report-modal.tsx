@@ -60,11 +60,11 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
 }
 
 const SECTION_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string }> = {
-  hardware_network: { bg: "bg-sky-500/8",     border: "border-sky-500/20",     icon: "text-sky-400",     badge: "bg-sky-500/10 text-sky-400 border-sky-500/20" },
-  software:         { bg: "bg-violet-500/8",  border: "border-violet-500/20",  icon: "text-violet-400",  badge: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
-  web_ecommerce:    { bg: "bg-blue-500/8",    border: "border-blue-500/20",    icon: "text-blue-400",    badge: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  compliance:       { bg: "bg-rose-500/8",    border: "border-rose-500/20",    icon: "text-rose-400",    badge: "bg-rose-500/10 text-rose-400 border-rose-500/20" },
-  iot_ai:           { bg: "bg-teal-500/8",    border: "border-teal-500/20",    icon: "text-teal-400",    badge: "bg-teal-500/10 text-teal-400 border-teal-500/20" },
+  hardware_network: { bg: "bg-sky-950/40",    border: "border-sky-800/40",    icon: "text-sky-300",    badge: "bg-sky-950/70 text-sky-300 border-sky-800/50" },
+  software:         { bg: "bg-violet-950/40", border: "border-violet-800/40", icon: "text-violet-300", badge: "bg-violet-950/70 text-violet-300 border-violet-800/50" },
+  web_ecommerce:    { bg: "bg-blue-950/40",   border: "border-blue-800/40",   icon: "text-blue-300",   badge: "bg-blue-950/70 text-blue-300 border-blue-800/50" },
+  compliance:       { bg: "bg-rose-950/40",   border: "border-rose-800/40",   icon: "text-rose-300",   badge: "bg-rose-950/70 text-rose-300 border-rose-800/50" },
+  iot_ai:           { bg: "bg-teal-950/40",   border: "border-teal-800/40",   icon: "text-teal-300",   badge: "bg-teal-950/70 text-teal-300 border-teal-800/50" },
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -181,8 +181,8 @@ function SectionBlock({
         <p className="text-[14px] font-bold flex-1" style={{ color: "var(--foreground)" }}>{label}</p>
         <span className={cn("text-[11px] font-semibold px-2.5 py-1 rounded-full border tabular-nums",
           answered === questions.length && questions.length > 0
-            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            : "bg-[var(--muted)] text-[var(--muted-foreground)] border-[var(--border)]"
+            ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+            : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60"
         )}>
           {answered}/{questions.length} answered
         </span>
@@ -201,8 +201,8 @@ function SectionBlock({
                   <span className={cn(
                     "size-6 rounded-full flex items-center justify-center text-[10px] font-black tabular-nums border shrink-0",
                     devices.length > 0
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      : "bg-[var(--muted)] text-[var(--muted-foreground)] border-[var(--border)]",
+                      ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+                      : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60",
                   )}>
                     {devices.length > 0 ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : idx + 1}
                   </span>
@@ -238,8 +238,8 @@ function SectionBlock({
                 <span className={cn(
                   "size-6 rounded-full flex items-center justify-center text-[10px] font-black tabular-nums border",
                   isAnswered
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    : "bg-[var(--muted)] text-[var(--muted-foreground)] border-[var(--border)]",
+                    ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+                    : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60",
                 )}>
                   {isAnswered ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : idx + 1}
                 </span>

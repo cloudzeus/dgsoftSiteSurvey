@@ -10,8 +10,13 @@ import {
 import { cn } from "@/lib/utils"
 import { Btn } from "@/components/ui/btn"
 import { lookupVat, geocodeAddress, lookupCompanyWeb, type AddressComponents } from "@/app/actions/aeede"
+import { gemiSearch, gemiGetDocuments } from "@/app/actions/gemi"
+import { saveCustomerFromLookup } from "@/app/actions/customer-from-lookup"
 import type { AeedeResult } from "@/lib/aeede"
 import type { CompanyWebInfo } from "@/lib/brave-search"
+import type { GemiCompany, GemiDocumentSet } from "@/lib/gemi"
+import { formatGemiAddress, reconcileContacts } from "@/lib/gemi"
+import { Save, FileText, Briefcase, Coins, Hash, Download } from "lucide-react"
 
 // Leaflet uses window — must be client-only, no SSR
 const AddressMap = dynamic(
@@ -56,6 +61,23 @@ function StatusPill({ active }: { active: boolean }) {
   )
 }
 
+function GemiRow({ icon, label, value, link }: { icon: React.ReactNode; label: string; value?: string | null; link?: string }) {
+  if (!value) return null
+  return (
+    <div className="flex items-start gap-2 py-1">
+      <span className="mt-0.5 text-[var(--muted-foreground)]">{icon}</span>
+      <span className="text-[10px] font-medium w-28 shrink-0 pt-px" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+      {link ? (
+        <a href={link} target="_blank" rel="noopener noreferrer" className="text-[12px] flex-1 text-indigo-400 hover:text-indigo-300 underline underline-offset-2 break-all">
+          {value}
+        </a>
+      ) : (
+        <span className="text-[12px] font-medium flex-1 break-words" style={{ color: "var(--foreground)" }}>{value}</span>
+      )}
+    </div>
+  )
+}
+
 function KadBadge({ kind }: { kind: string }) {
   const primary = kind === "1"
   return (
@@ -88,10 +110,18 @@ export function VatLookup() {
   const [geoError, setGeoError] = useState<string | null>(null)
   const [webInfo, setWebInfo]   = useState<CompanyWebInfo | null>(null)
   const [webError, setWebError] = useState<string | null>(null)
+  const [gemi, setGemi]         = useState<GemiCompany | null>(null)
+  const [gemiError, setGemiError] = useState<string | null>(null)
+  const [docs, setDocs]         = useState<GemiDocumentSet | null>(null)
+  const [docsError, setDocsError] = useState<string | null>(null)
+  const [saveMsg, setSaveMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null)
 
   const [isSearching, startSearch]   = useTransition()
   const [isGeocoding, startGeocode]  = useTransition()
   const [isWebLookup, startWebLookup] = useTransition()
+  const [isGemiLookup, startGemiLookup] = useTransition()
+  const [isDocsLookup, startDocsLookup] = useTransition()
+  const [isSaving, startSave] = useTransition()
 
   function handleSearch() {
     setError(null)
@@ -100,10 +130,57 @@ export function VatLookup() {
     setGeoError(null)
     setWebInfo(null)
     setWebError(null)
+    setGemi(null)
+    setGemiError(null)
+    setDocs(null)
+    setDocsError(null)
+    setSaveMsg(null)
     startSearch(async () => {
       const res = await lookupVat(afm)
-      if (res.ok) setResult(res.data)
-      else setError(res.error)
+      if (res.ok) {
+        setResult(res.data)
+        // Fire-and-forget GEMI lookup by AFM (parallel display).
+        startGemiLookup(async () => {
+          const g = await gemiSearch({ afm, resultsSize: 1 })
+          if (g.ok) {
+            const company = g.data.searchResults[0] ?? null
+            setGemi(company)
+            if (!company) {
+              setGemiError("Δεν βρέθηκε εταιρεία στο ΓΕΜΗ")
+            } else {
+              // Once we have an arGemi, fetch documents.
+              startDocsLookup(async () => {
+                const d = await gemiGetDocuments(String(company.arGemi))
+                if (d.ok) setDocs(d.data)
+                else setDocsError(d.error)
+              })
+            }
+          } else {
+            setGemiError(g.error)
+          }
+        })
+      } else {
+        setError(res.error)
+      }
+    })
+  }
+
+  function handleSave() {
+    if (!result) return
+    setSaveMsg(null)
+    startSave(async () => {
+      const res = await saveCustomerFromLookup({ aeede: result, gemi, webInfo })
+      if (res.ok) {
+        const docsPart = res.docCount > 0 ? ` · ${res.docCount} έγγραφα` : ""
+        setSaveMsg({
+          kind: "ok",
+          text: res.created
+            ? `Δημιουργήθηκε νέος πελάτης (#${res.customerId})${docsPart}`
+            : `Ενημερώθηκε ο πελάτης (#${res.customerId})${docsPart}`,
+        })
+      } else {
+        setSaveMsg({ kind: "err", text: res.error })
+      }
     })
   }
 
@@ -385,6 +462,209 @@ export function VatLookup() {
               </div>
             )}
           </div>
+
+          {/* ── GEMI panel — full width ── */}
+          <div className="lg:col-span-2 rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+            <div className="px-5 py-3 flex items-center justify-between gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2">
+                <Building2 className="size-3.5" style={{ color: "var(--muted-foreground)" }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
+                  Στοιχεία ΓΕΜΗ
+                </span>
+              </div>
+              <Btn
+                variant="primary"
+                size="sm"
+                onClick={handleSave}
+                disabled={isSaving}
+                title="Δημιουργία ή ενημέρωση Πελάτη με στοιχεία AAEDE + ΓΕΜΗ"
+              >
+                {isSaving
+                  ? <><Loader2 className="size-3.5 animate-spin" /> Αποθήκευση…</>
+                  : <><Save className="size-3.5" /> Αποθήκευση Πελάτη</>}
+              </Btn>
+            </div>
+
+            <div className="px-5 py-4">
+              {isGemiLookup && (
+                <div className="flex items-center gap-2 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                  <Loader2 className="size-3.5 animate-spin" /> Αναζήτηση στο ΓΕΜΗ…
+                </div>
+              )}
+              {!isGemiLookup && gemiError && !gemi && (
+                <div className="flex items-center gap-2 text-[12px] text-amber-400">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  {gemiError}
+                </div>
+              )}
+              {gemi && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <GemiRow icon={<Hash className="size-3" />} label="Αρ. ΓΕΜΗ" value={String(gemi.arGemi)} />
+                    <GemiRow icon={<Briefcase className="size-3" />} label="Νομική Μορφή" value={gemi.legalType?.descr} />
+                    <GemiRow icon={<FileText className="size-3" />} label="Κατάσταση" value={gemi.status?.descr} />
+                    <GemiRow icon={<Calendar className="size-3" />} label="Ημ. Ίδρυσης" value={gemi.incorporationDate} />
+                    <GemiRow icon={<Calendar className="size-3" />} label="Τελ. Μεταβολή" value={gemi.lastStatusChange} />
+                    <GemiRow icon={<Building2 className="size-3" />} label="Υπηρ. ΓΕΜΗ" value={gemi.gemiOffice?.descr} />
+                  </div>
+                  <div className="space-y-1">
+                    <GemiRow icon={<MapPin className="size-3" />} label="Διεύθυνση" value={formatGemiAddress(gemi)} />
+                    <GemiRow icon={<MapPin className="size-3" />} label="Νομός" value={gemi.prefecture?.descr} />
+                    <GemiRow icon={<MapPin className="size-3" />} label="Δήμος" value={gemi.municipality?.descr} />
+                    {(() => {
+                      const { email: cEmail, webpage: cWebpage } = reconcileContacts(gemi.email, gemi.url)
+                      return (
+                        <>
+                          {cWebpage && <GemiRow icon={<Globe className="size-3" />} label="Ιστοσελίδα" value={cWebpage.replace(/^https?:\/\//, "")} link={cWebpage} />}
+                          {cEmail && <GemiRow icon={<Mail className="size-3" />} label="Email" value={cEmail} link={`mailto:${cEmail}`} />}
+                        </>
+                      )
+                    })()}
+                  </div>
+
+                  {gemi.objective && (
+                    <div className="md:col-span-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>
+                        Σκοπός
+                      </p>
+                      <p className="text-[12px]" style={{ color: "var(--foreground)" }}>{gemi.objective}</p>
+                    </div>
+                  )}
+
+                  {gemi.capital && gemi.capital.length > 0 && (
+                    <div className="md:col-span-2 rounded-lg border p-3" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1.5" style={{ color: "var(--muted-foreground)" }}>
+                        <Coins className="size-3" /> Κεφάλαιο
+                      </p>
+                      {gemi.capital.map((c, i) => (
+                        <p key={i} className="text-[12px]" style={{ color: "var(--foreground)" }}>
+                          <span className="font-mono font-semibold">{c.capitalStock?.toLocaleString("el-GR")}</span>{" "}
+                          <span className="text-[var(--muted-foreground)]">{c.currency}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {saveMsg && (
+                <div className={cn(
+                  "mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] border",
+                  saveMsg.kind === "ok"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : "bg-red-500/10 text-red-400 border-red-500/20",
+                )}>
+                  {saveMsg.kind === "ok" ? <CheckCircle2 className="size-3.5 shrink-0" /> : <AlertCircle className="size-3.5 shrink-0" />}
+                  <span>{saveMsg.text}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Documents panel — shown after GEMI lookup succeeds ── */}
+          {gemi && (
+            <div className="lg:col-span-2 rounded-2xl border overflow-hidden" style={{ borderColor: "var(--border)", background: "var(--card)" }}>
+              <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
+                <FileText className="size-3.5" style={{ color: "var(--muted-foreground)" }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
+                  Έγγραφα ΓΕΜΗ
+                  {docs && (
+                    <span className="ml-2 font-normal text-[var(--foreground)]">
+                      — {docs.decision.length + docs.publication.length}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              <div className="px-5 py-4">
+                {isDocsLookup && (
+                  <div className="flex items-center gap-2 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
+                    <Loader2 className="size-3.5 animate-spin" /> Φόρτωση εγγράφων…
+                  </div>
+                )}
+                {!isDocsLookup && docsError && (
+                  <div className="flex items-center gap-2 text-[12px] text-amber-400">
+                    <AlertCircle className="size-3.5 shrink-0" /> {docsError}
+                  </div>
+                )}
+                {!isDocsLookup && docs && docs.decision.length === 0 && docs.publication.length === 0 && (
+                  <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>Δεν βρέθηκαν διαθέσιμα έγγραφα.</p>
+                )}
+                {docs && (docs.decision.length > 0 || docs.publication.length > 0) && (
+                  <div className="space-y-3">
+                    {docs.decision.length > 0 && (
+                      <div className="rounded-lg border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider bg-[var(--muted)]/40" style={{ color: "var(--muted-foreground)" }}>
+                          Αποφάσεις / Ανακοινώσεις ({docs.decision.length})
+                        </div>
+                        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                          {docs.decision.map((d, i) => (
+                            <div key={`dec-${i}`} className="px-3 py-2.5 flex items-start gap-2">
+                              <FileText className="size-3.5 mt-0.5 shrink-0 text-indigo-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[12px] font-semibold" style={{ color: "var(--foreground)" }}>
+                                  {d.decisionSubject || d.assembly || "—"}
+                                </p>
+                                {d.summary && (
+                                  <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{d.summary}</p>
+                                )}
+                                <div className="flex items-center gap-3 flex-wrap text-[10px] mt-1" style={{ color: "var(--muted-foreground)" }}>
+                                  {d.kak && <span className="font-mono">ΚΑΚ {d.kak}</span>}
+                                  {d.dateAnnounced && <span>Αν: {d.dateAnnounced}</span>}
+                                  {d.dateAssemblyDecided && <span>Απόφ: {d.dateAssemblyDecided}</span>}
+                                  {d.applicationStatusDescription && <span>· {d.applicationStatusDescription}</span>}
+                                </div>
+                              </div>
+                              {d.assemblyDecisionUrl && (
+                                <a
+                                  href={d.assemblyDecisionUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-medium hover:bg-[var(--accent)] shrink-0"
+                                  style={{ color: "var(--foreground)" }}
+                                >
+                                  <Download className="size-3" /> Λήψη
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {docs.publication.length > 0 && (
+                      <div className="rounded-lg border overflow-hidden" style={{ borderColor: "var(--border)" }}>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider bg-[var(--muted)]/40" style={{ color: "var(--muted-foreground)" }}>
+                          ΥΜΣ Δημοσιεύσεις ({docs.publication.length})
+                        </div>
+                        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+                          {docs.publication.map((p, i) => (
+                            <div key={`pub-${i}`} className="px-3 py-2.5 flex items-center gap-2">
+                              <FileText className="size-3.5 shrink-0 text-violet-400" />
+                              <p className="text-[12px] font-mono flex-1" style={{ color: "var(--foreground)" }}>
+                                {p.kad || "—"}
+                              </p>
+                              {p.url && (
+                                <a
+                                  href={p.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-medium hover:bg-[var(--accent)] shrink-0"
+                                  style={{ color: "var(--foreground)" }}
+                                >
+                                  <ExternalLink className="size-3" /> Άνοιγμα
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Map — full width, shown after geocoding ── */}
           {coords && (

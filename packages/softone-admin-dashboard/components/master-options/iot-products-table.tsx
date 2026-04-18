@@ -14,7 +14,7 @@ import {
   createIotProduct, updateIotProduct,
   deleteIotProduct, deleteIotProducts,
   type IotProductRow,
-} from "@/app/(dashboard)/master-options/iot-products/actions"
+} from "@/app/[locale]/(dashboard)/master-options/iot-products/actions"
 import type { IotTech } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────

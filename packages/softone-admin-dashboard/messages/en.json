@@ -1,0 +1,419 @@
+{
+  "common": {
+    "language": "Language",
+    "greek": "Ελληνικά",
+    "english": "English",
+    "close": "Close",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "navigation": {
+    "groups": {
+      "platform": "Platform",
+      "orchestration": "Orchestration",
+      "siteSurvey": "Site Survey",
+      "masterOptions": "Master Options",
+      "tools": "Tools",
+      "usersManagement": "Users Management",
+      "liveRecords": "Live Records",
+      "settings": "Settings"
+    },
+    "items": {
+      "overview": "Overview",
+      "connections": "Connections",
+      "entities": "Entities",
+      "mappings": "Mappings",
+      "records": "Records",
+      "jobs": "Jobs",
+      "monitoring": "Monitoring",
+      "allSurveys": "All Surveys",
+      "customers": "Customers",
+      "brands": "Brands",
+      "assetTypes": "Asset Types",
+      "softwareVendors": "Software Vendors",
+      "softwareProducts": "Software Products",
+      "webPlatforms": "Web Platforms",
+      "digitalTools": "Digital Tools",
+      "iotCategories": "IoT Categories",
+      "iotProducts": "IoT Products",
+      "surveyQuestions": "Survey Questions",
+      "vatLookup": "AADE VAT Info",
+      "media": "Media Library",
+      "import": "Excel Import",
+      "xmlFeeds": "XML Feeds",
+      "backups": "DB Backups",
+      "users": "Users",
+      "roles": "Roles",
+      "settings": "Settings",
+      "translations": "Translations"
+    },
+    "actions": {
+      "license": "License",
+      "signOut": "Sign out",
+      "changeLanguage": "Change language",
+      "collapseSidebar": "Collapse sidebar",
+      "expandSidebar": "Expand sidebar"
+    }
+  },
+  "survey": {
+    "title": "Site Surveys",
+    "description": "Site surveys and assessments on customer websites"
+  },
+  "translationsPage": {
+    "title": "Translations Management",
+    "subtitle": "Edit application UI text. Use DeepSeek to auto-translate missing entries.",
+    "searchPlaceholder": "Search key or content…",
+    "missingOnly": "Missing only",
+    "translateAllMissing": "Translate all missing (EN → EL)",
+    "saveChanges": "Save changes ({count})",
+    "translateFrom": "Translate from {from}",
+    "noSourceText": "No source text to translate",
+    "noResults": "No keys found",
+    "showing": "Showing {filtered} of {total} keys",
+    "saved": "Saved {count} changes",
+    "bulkDone": "Translated {count} entries",
+    "bulkErrorAt": "Error at {path}: {error}",
+    "colKey": "Key",
+    "locale": {
+      "el": "Ελληνικά",
+      "en": "English"
+    }
+  },
+  "siteSurveysTable": {
+    "columns": {
+      "name": "Survey",
+      "customer": "Customer",
+      "date": "Date",
+      "surveyor": "Surveyor",
+      "sections": "Sections",
+      "status": "Status",
+      "createdAt": "Created"
+    },
+    "search": "Search surveys, customers, surveyors…",
+    "actions": {
+      "new": "New Survey",
+      "edit": "Edit",
+      "delete": "Delete",
+      "viewReport": "View Report",
+      "proposal": "Proposal",
+      "uploadFiles": "Upload Files",
+      "sendMail": "Send Mail",
+      "columns": "Columns",
+      "locked": "locked",
+      "clear": "Clear",
+      "selected": "{count} selected",
+      "rowsPerPage": "Rows per page",
+      "rowsRange": "{from}–{to} of {total}",
+      "zeroSurveys": "0 surveys"
+    },
+    "status": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "sections": {
+      "hardware_network": "Hardware & Network",
+      "software": "Software",
+      "web_ecommerce": "Web & E-commerce",
+      "compliance": "Compliance",
+      "iot_ai": "IoT & AI"
+    },
+    "tabs": {
+      "details": "Details",
+      "sections": "Sections ({count})",
+      "branches": "Branches ({count})",
+      "files": "Files",
+      "filesWithCount": "Files ({count})",
+      "requirements": "Requirements",
+      "proposal": "Proposal",
+      "results": "Results",
+      "history": "History"
+    },
+    "detailsTab": {
+      "description": "Description",
+      "customer": "Customer",
+      "surveyor": "Surveyor",
+      "date": "Date",
+      "status": "Status",
+      "lastUpdated": "Last Updated"
+    },
+    "sectionsTab": {
+      "empty": "No sections selected.",
+      "fillOut": "Fill out",
+      "sendToCustomer": "Send to customer",
+      "removeSection": "Remove section"
+    },
+    "branchesTab": {
+      "empty": "All branches / HQ — no specific branches selected.",
+      "selected": "{count} branches selected",
+      "selectedSingular": "{count} branch selected",
+      "branchPrefix": "Branch"
+    },
+    "filesTab": {
+      "loading": "Loading files…",
+      "empty": "No files uploaded yet.",
+      "download": "Download",
+      "delete": "Delete",
+      "upload": "Upload file",
+      "uploadTitle": "Upload Survey Files"
+    },
+    "requirementsTab": {
+      "loading": "Loading requirements…",
+      "emptyTitle": "No requirements yet",
+      "emptyHint": "Add client requirements per section",
+      "add": "Add requirement",
+      "editTitle": "Edit Requirement",
+      "newTitle": "New Requirement",
+      "sectionLabel": "Section",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Requirement title…",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Optional description — or use AI to generate one in Greek…",
+      "enterTitleFirst": "Enter a title first",
+      "generateWithAi": "Generate with AI",
+      "generating": "Generating…",
+      "generatingDescription": "Generating description…",
+      "attachment": "Attachment",
+      "replaceBelow": "Replace below",
+      "chooseFile": "Choose file",
+      "saving": "Save changes",
+      "adding": "Add requirement",
+      "edit": "Edit",
+      "delete": "Delete",
+      "cancel": "Cancel"
+    },
+    "proposalTab": {
+      "title": "Proposal",
+      "subtitle": "Create or edit the proposal for this survey",
+      "open": "Open Proposal"
+    },
+    "resultsTab": {
+      "loading": "Loading survey results…",
+      "noneTitle": "No Results Available",
+      "noneSubtitle": "Survey has not been completed yet",
+      "filledByCustomer": "Filled by Customer",
+      "filledByAdmin": "Filled by Admin",
+      "answered": "{answered}/{total} answered",
+      "noAnswer": "No answer",
+      "noDevicesRecorded": "No devices recorded",
+      "devices": "{count} devices",
+      "devicesSingular": "{count} device",
+      "yes": "Yes",
+      "no": "No",
+      "brandModel": "Brand / Model",
+      "serial": "Serial #",
+      "location": "Location",
+      "ip": "IP Address"
+    },
+    "historyTab": {
+      "loading": "Loading history…",
+      "empty": "No changes recorded yet.",
+      "customer": "Customer",
+      "admin": "Admin",
+      "cleared": "cleared"
+    },
+    "invitation": {
+      "customerSubmitted": "Customer submitted",
+      "awaitingResponse": "Awaiting response",
+      "submittedBy": "Submitted by",
+      "linkSentTo": "Link sent to",
+      "expires": "expires",
+      "customerSubmittedTitle": "Customer submitted this section"
+    },
+    "empty": {
+      "noSurveys": "No surveys found"
+    }
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "subtitle": "{surveys} surveys · {customers} customers · {users} team members",
+    "cta": {
+      "newSurvey": "New Survey",
+      "customers": "Customers"
+    },
+    "kpi": {
+      "customers": "Customers",
+      "surveys": "Site Surveys",
+      "proposals": "Proposals",
+      "surveysSubtitle": "{count} completed",
+      "customersSubtitle": "+{count} this month",
+      "proposalsSubtitle": "{accepted} accepted · {sent} awaiting",
+      "winRate": "{rate}% won",
+      "activeBadge": "{count} active",
+      "deltaBadge": "{delta}% MoM"
+    },
+    "alert": {
+      "failedDeliveries": "{count} failed deliveries require attention — pipeline records could not be delivered.",
+      "review": "Review"
+    },
+    "pipeline": {
+      "title": "Survey Pipeline",
+      "subtitle": "Status distribution across {total} surveys",
+      "viewAll": "View all",
+      "empty": "No surveys yet",
+      "createFirst": "Create first survey"
+    },
+    "proposals": {
+      "title": "Proposals",
+      "totalCount": "{count} total",
+      "winRate": "Win Rate",
+      "empty": "No proposals yet"
+    },
+    "recentSurveys": {
+      "title": "Recent Surveys",
+      "subtitle": "Latest field assessments",
+      "viewAll": "All",
+      "empty": "No surveys yet"
+    },
+    "topCustomers": {
+      "title": "Top Customers",
+      "subtitle": "By survey volume",
+      "empty": "No data yet"
+    },
+    "recentProposals": {
+      "title": "Recent Proposals",
+      "subtitle": "Latest generated proposals",
+      "viewAll": "All",
+      "empty": "No proposals yet"
+    },
+    "quickAccess": {
+      "title": "Quick Access",
+      "newSurvey": "New Survey",
+      "customers": "Customers",
+      "vatLookup": "AADE VAT / GEMI",
+      "media": "Media Library",
+      "surveyQuestions": "Survey Questions",
+      "import": "Excel Import"
+    },
+    "systemSection": {
+      "title": "System & Integration",
+      "subtitle": "Platform diagnostics",
+      "expand": "Show",
+      "collapse": "Hide"
+    },
+    "jobs": {
+      "title": "Pipeline Jobs",
+      "subtitle": "{count} completed today",
+      "viewAll": "View all",
+      "records": "{count} records",
+      "empty": "No jobs"
+    },
+    "pipelineMetrics": {
+      "title": "Integration Pipeline",
+      "connections": "Connections",
+      "entities": "Entities",
+      "pendingRecords": "Pending records",
+      "failedDeliveries": "Failed deliveries"
+    },
+    "systemStatus": {
+      "title": "System Status",
+      "subtitle": "Subsystem health at a glance",
+      "allHealthy": "All systems nominal",
+      "attention": "Attention needed",
+      "dlq": "DLQ Unresolved",
+      "lastBackup": "Last Backup",
+      "never": "Never",
+      "activeFeeds": "Active XML Feeds",
+      "syncFailures": "Sync Failures Today"
+    },
+    "syncActivity": {
+      "title": "Sync Activity",
+      "subtitle": "Recent Softone ERP sync jobs",
+      "configure": "Configure",
+      "empty": "No sync jobs yet",
+      "status": {
+        "completed": "Completed",
+        "partial": "Partial",
+        "failed": "Failed"
+      }
+    },
+    "timeline": {
+      "title": "Activity Timeline",
+      "subtitle": "Recent events across the platform",
+      "surveyType": "Survey · {customer}",
+      "proposalType": "Proposal · {customer}",
+      "jobType": "Pipeline Job · {trigger} · {records} records"
+    },
+    "statsFooter": {
+      "teamMembers": "Team Members",
+      "mediaFiles": "Media Files",
+      "activePipes": "Active Pipes"
+    },
+    "timeAgo": {
+      "justNow": "just now",
+      "minutes": "{count}m ago",
+      "hours": "{count}h ago",
+      "yesterday": "yesterday",
+      "days": "{count}d ago"
+    },
+    "surveyStatus": {
+      "draft": "Draft",
+      "scheduled": "Scheduled",
+      "in_progress": "In Progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "proposalStatus": {
+      "draft": "Draft",
+      "sent": "Sent",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    }
+  },
+  "surveyWizard": {
+    "loading": "Loading questions…",
+    "loadError": "Failed to load questions",
+    "noQuestions": "No questions defined for this section yet.",
+    "noQuestionsHint": "Add questions in Master Options → Survey Questions.",
+    "progress": "Progress",
+    "answered": "{answered} / {total} answered",
+    "saveAnswers": "Save answers",
+    "savedSuccessfully": "Saved successfully",
+    "saveFailed": "Save failed ({status})",
+    "customerSubmittedTitle": "Customer already submitted this section",
+    "customerSubmittedBody": "filled in this questionnaire. Any changes you save here will overwrite their answers and be recorded in the history.",
+    "devicesRecorded": "{count} devices recorded",
+    "devicesRecordedSingular": "{count} device recorded",
+    "boolean": {
+      "yes": "Yes",
+      "no": "No",
+      "clear": "Clear"
+    },
+    "dropdown": {
+      "placeholder": "— Select —"
+    },
+    "device": {
+      "brand": "Brand",
+      "brandPlaceholder": "e.g. Fortinet",
+      "model": "Model",
+      "modelPlaceholder": "e.g. FortiGate 100F",
+      "modelDisabledPlaceholder": "Select a brand first",
+      "serial": "Serial #",
+      "serialPlaceholder": "e.g. FG100F1234",
+      "location": "Location",
+      "locationPlaceholder": "e.g. Server Room A",
+      "ip": "IP Address",
+      "ipPlaceholder": "e.g. 192.168.1.1",
+      "cancel": "Cancel",
+      "saveDevice": "Save device",
+      "addDevice": "Add device",
+      "searching": "Searching…",
+      "noBrands": "No brands found",
+      "noModelsForBrand": "No models for {brand} yet",
+      "addBrand": "Add \"{name}\" as new brand",
+      "addModel": "Add \"{name}\" to {brand}"
+    }
+  }
+}

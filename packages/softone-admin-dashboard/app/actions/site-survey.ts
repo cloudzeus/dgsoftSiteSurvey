@@ -67,6 +67,88 @@ export async function deleteSiteSurvey(id: number) {
   revalidatePath("/site-survey")
 }
 
+// ─── Section removal ─────────────────────────────────────────────────────────
+// Removing a section drops the section key from SiteSurvey.sections AND deletes
+// every dependent row (answers, audit history, invitations, client requirements)
+// for that section. Destructive — UI must confirm.
+
+const SECTION_KEY_TO_ENUM: Record<string, string> = {
+  hardware_network: "HARDWARE_NETWORK",
+  software: "SOFTWARE",
+  web_ecommerce: "WEB_ECOMMERCE",
+  compliance: "COMPLIANCE",
+  iot_ai: "IOT_AI",
+  voip: "VOIP",
+}
+
+export async function getSurveySectionImpact(
+  surveyId: number,
+  sectionKey: string,
+): Promise<{ ok: true; answers: number; history: number; invitations: number; requirements: number } | { ok: false; error: string }> {
+  const enumValue = SECTION_KEY_TO_ENUM[sectionKey]
+  if (!enumValue) return { ok: false, error: "Άγνωστη ενότητα" }
+
+  const questionIds = (await db.surveyQuestion.findMany({
+    where: { section: enumValue as never },
+    select: { id: true },
+  })).map((q) => q.id)
+
+  const [answers, history, invitations, requirements] = await Promise.all([
+    questionIds.length > 0
+      ? db.surveyResult.count({ where: { surveyId, questionId: { in: questionIds } } })
+      : Promise.resolve(0),
+    questionIds.length > 0
+      ? db.surveyResultHistory.count({ where: { surveyId, questionId: { in: questionIds } } })
+      : Promise.resolve(0),
+    db.surveyInvitation.count({ where: { surveyId, sectionKey } }),
+    db.clientRequirement.count({ where: { surveyId, section: enumValue as never } }),
+  ])
+
+  return { ok: true, answers, history, invitations, requirements }
+}
+
+export async function removeSurveySection(
+  surveyId: number,
+  sectionKey: string,
+): Promise<{ ok: true; remainingSections: string[] } | { ok: false; error: string }> {
+  const enumValue = SECTION_KEY_TO_ENUM[sectionKey]
+  if (!enumValue) return { ok: false, error: "Άγνωστη ενότητα" }
+
+  const survey = await db.siteSurvey.findUnique({
+    where: { id: surveyId },
+    select: { sections: true },
+  })
+  if (!survey) return { ok: false, error: "Δεν βρέθηκε η έρευνα" }
+
+  const currentSections = Array.isArray(survey.sections) ? (survey.sections as string[]) : []
+  if (!currentSections.includes(sectionKey)) {
+    return { ok: false, error: "Η ενότητα δεν υπάρχει σε αυτήν την έρευνα" }
+  }
+
+  const questionIds = (await db.surveyQuestion.findMany({
+    where: { section: enumValue as never },
+    select: { id: true },
+  })).map((q) => q.id)
+
+  const remainingSections = currentSections.filter((s) => s !== sectionKey)
+
+  await db.$transaction(async (tx) => {
+    if (questionIds.length > 0) {
+      await tx.surveyResult.deleteMany({ where: { surveyId, questionId: { in: questionIds } } })
+      await tx.surveyResultHistory.deleteMany({ where: { surveyId, questionId: { in: questionIds } } })
+    }
+    await tx.surveyInvitation.deleteMany({ where: { surveyId, sectionKey } })
+    await tx.clientRequirement.deleteMany({ where: { surveyId, section: enumValue as never } })
+    await tx.siteSurvey.update({
+      where: { id: surveyId },
+      data: { sections: remainingSections },
+    })
+  })
+
+  revalidatePath("/site-survey")
+  return { ok: true, remainingSections }
+}
+
 // ─── File actions ─────────────────────────────────────────────────────────────
 
 export interface SurveyFileRow {

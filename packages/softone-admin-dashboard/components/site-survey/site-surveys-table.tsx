@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useCallback, useTransition, useRef } from "react"
+import { useTranslations } from "next-intl"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import {
   ClipboardList, MoreHorizontal, Pencil, Trash2, Loader2, Plus, Search,
@@ -9,13 +10,13 @@ import {
   ChevronsLeft, ChevronLeft, ChevronRight as ChevronRightIcon, ChevronsRight,
   User, Calendar, Tag, Paperclip, FileText, FileImage, File as FileIcon, Download,
   PlayCircle, FileBarChart2, ListChecks, X, Sparkles, Send, Mail,
-  Lock, Clock, UserCheck, History,
+  Lock, Clock, UserCheck, History, CheckCircle2,
 } from "lucide-react"
 import { FileUploadDialog, type SectionOption } from "@/components/shared/file-upload-dialog"
 import { Btn } from "@/components/ui/btn"
 import { cn } from "@/lib/utils"
 import { useTablePrefs, PAGE_SIZES, type ColDef } from "@/hooks/use-table-prefs"
-import { deleteSiteSurvey, getCustomerBranches } from "@/app/actions/site-survey"
+import { deleteSiteSurvey, getCustomerBranches, getSurveySectionImpact, removeSurveySection } from "@/app/actions/site-survey"
 import { SiteSurveyDialog, type SurveyUser, type SurveyCustomer, type SurveyCustomerOption, type SurveyBranch, type SiteSurveyRow } from "./site-survey-dialog"
 import { SurveyQuestionsWizard } from "./survey-questions-wizard"
 import { SiteSurveyReportModal } from "./site-survey-report-modal"
@@ -46,14 +47,25 @@ export interface SurveyTableRow {
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: ColDef[] = [
-  { key: "name",      label: "Survey",    sortable: true,  defaultVisible: true,  alwaysVisible: true  },
-  { key: "customer",  label: "Customer",  sortable: false, defaultVisible: true,  alwaysVisible: false },
-  { key: "date",      label: "Date",      sortable: true,  defaultVisible: true,  alwaysVisible: false },
-  { key: "surveyor",  label: "Surveyor",  sortable: false, defaultVisible: true,  alwaysVisible: false },
-  { key: "sections",  label: "Sections",  sortable: false, defaultVisible: true,  alwaysVisible: false },
-  { key: "status",    label: "Status",    sortable: true,  defaultVisible: true,  alwaysVisible: false },
-  { key: "createdAt", label: "Created",   sortable: true,  defaultVisible: false, alwaysVisible: false },
+  { key: "name", label: "Survey", sortable: true, defaultVisible: true, alwaysVisible: true },
+  { key: "customer", label: "Customer", sortable: false, defaultVisible: true, alwaysVisible: false },
+  { key: "date", label: "Date", sortable: true, defaultVisible: true, alwaysVisible: false },
+  { key: "surveyor", label: "Surveyor", sortable: false, defaultVisible: true, alwaysVisible: false },
+  { key: "sections", label: "Sections", sortable: false, defaultVisible: true, alwaysVisible: false },
+  { key: "status", label: "Status", sortable: true, defaultVisible: true, alwaysVisible: false },
+  { key: "createdAt", label: "Created", sortable: true, defaultVisible: false, alwaysVisible: false },
 ]
+
+// Column keys used for translation lookups — labels above are fallbacks only
+const COLUMN_I18N_KEYS: Record<string, string> = {
+  name: "name",
+  customer: "customer",
+  date: "date",
+  surveyor: "surveyor",
+  sections: "sections",
+  status: "status",
+  createdAt: "createdAt",
+}
 
 const DEFAULT_WIDTHS: Record<string, number> = {
   name: 220, customer: 180, date: 110, surveyor: 150, sections: 260, status: 120, createdAt: 110,
@@ -63,50 +75,45 @@ type SortField = "name" | "date" | "status" | "createdAt"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const SECTION_LABELS: Record<string, string> = {
-  hardware_network: "Hardware & Network",
-  software:         "Software",
-  web_ecommerce:    "Web & E-commerce",
-  compliance:       "Compliance",
-  iot_ai:           "IoT & AI",
-}
-
 const SECTION_ICONS: Record<string, React.ReactNode> = {
-  hardware_network: <Cpu          className="size-3" />,
-  software:         <ClipboardList className="size-3" />,
-  web_ecommerce:    <Globe        className="size-3" />,
-  compliance:       <ShieldCheck  className="size-3" />,
-  iot_ai:           <Bot          className="size-3" />,
+  hardware_network: <Cpu className="size-3" />,
+  software: <ClipboardList className="size-3" />,
+  web_ecommerce: <Globe className="size-3" />,
+  compliance: <ShieldCheck className="size-3" />,
+  iot_ai: <Bot className="size-3" />,
 }
 
 const SECTION_BADGE_STYLES: Record<string, string> = {
-  hardware_network: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-  software:         "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  web_ecommerce:    "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  compliance:       "bg-rose-500/10 text-rose-400 border-rose-500/20",
-  iot_ai:           "bg-teal-500/10 text-teal-400 border-teal-500/20",
+  hardware_network: "bg-sky-950/70 text-sky-300 border-sky-800/50",
+  software: "bg-violet-950/70 text-violet-300 border-violet-800/50",
+  web_ecommerce: "bg-blue-950/70 text-blue-300 border-blue-800/50",
+  compliance: "bg-rose-950/70 text-rose-300 border-rose-800/50",
+  iot_ai: "bg-teal-950/70 text-teal-300 border-teal-800/50",
+}
+
+const SECTION_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string }> = {
+  hardware_network: { bg: "bg-sky-950/40", border: "border-sky-800/40", icon: "text-sky-300", badge: "bg-sky-950/70 text-sky-300 border-sky-800/50" },
+  software: { bg: "bg-violet-950/40", border: "border-violet-800/40", icon: "text-violet-300", badge: "bg-violet-950/70 text-violet-300 border-violet-800/50" },
+  web_ecommerce: { bg: "bg-blue-950/40", border: "border-blue-800/40", icon: "text-blue-300", badge: "bg-blue-950/70 text-blue-300 border-blue-800/50" },
+  compliance: { bg: "bg-rose-950/40", border: "border-rose-800/40", icon: "text-rose-300", badge: "bg-rose-950/70 text-rose-300 border-rose-800/50" },
+  iot_ai: { bg: "bg-teal-950/40", border: "border-teal-800/40", icon: "text-teal-300", badge: "bg-teal-950/70 text-teal-300 border-teal-800/50" },
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  DRAFT:       "bg-zinc-500/12 text-zinc-400 border-zinc-500/25",
-  SCHEDULED:   "bg-sky-500/12 text-sky-400 border-sky-500/25",
+  DRAFT: "bg-zinc-500/12 text-zinc-400 border-zinc-500/25",
+  SCHEDULED: "bg-sky-500/12 text-sky-400 border-sky-500/25",
   IN_PROGRESS: "bg-amber-500/12 text-amber-400 border-amber-500/25",
-  COMPLETED:   "bg-emerald-500/12 text-emerald-400 border-emerald-500/25",
-  CANCELLED:   "bg-rose-500/12 text-rose-400 border-rose-500/25",
+  COMPLETED: "bg-emerald-500/12 text-emerald-400 border-emerald-500/25",
+  CANCELLED: "bg-rose-500/12 text-rose-400 border-rose-500/25",
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  DRAFT: "Draft", SCHEDULED: "Scheduled", IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed", CANCELLED: "Cancelled",
-}
-
-const SURVEY_SECTION_OPTIONS: SectionOption[] = [
-  { value: "hardware_network", label: "Hardware & Network" },
-  { value: "software",         label: "Software" },
-  { value: "web_ecommerce",    label: "Web & E-commerce" },
-  { value: "compliance",       label: "Compliance" },
-  { value: "iot_ai",           label: "IoT & AI" },
-]
+const SURVEY_SECTION_KEYS = [
+  "hardware_network",
+  "software",
+  "web_ecommerce",
+  "compliance",
+  "iot_ai",
+] as const
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -117,9 +124,9 @@ function formatBytes(bytes: number): string {
 }
 
 function SurveyFileTypeIcon({ mimeType }: { mimeType: string }) {
-  if (mimeType.startsWith("image/"))       return <FileImage className="size-4 text-sky-400" />
-  if (mimeType === "application/pdf")      return <FileText  className="size-4 text-rose-400" />
-  if (mimeType.startsWith("text/"))        return <FileText  className="size-4 text-amber-400" />
+  if (mimeType.startsWith("image/")) return <FileImage className="size-4 text-sky-400" />
+  if (mimeType === "application/pdf") return <FileText className="size-4 text-rose-400" />
+  if (mimeType.startsWith("text/")) return <FileText className="size-4 text-amber-400" />
   return <FileIcon className="size-4" style={{ color: "var(--muted-foreground)" }} />
 }
 
@@ -132,7 +139,7 @@ type SurveyFileRow = {
 
 // ─── Expanded row ─────────────────────────────────────────────────────────────
 
-type ExpandedTab = "details" | "sections" | "branches" | "files" | "requirements" | "proposal" | "history"
+type ExpandedTab = "details" | "sections" | "branches" | "files" | "requirements" | "proposal" | "results" | "history"
 
 type ClientRequirementRow = {
   id: number; surveyId: number; section: string; title: string
@@ -143,64 +150,70 @@ type ClientRequirementRow = {
 
 const REQ_SECTION_VALUES = ["SOFTWARE", "WEB_ECOMMERCE", "IOT_AI", "HARDWARE_NETWORK", "COMPLIANCE"] as const
 
+// Maps DB section (UPPER_SNAKE) → i18n section key (lower_snake)
+const REQ_SECTION_TO_I18N: Record<string, string> = {
+  HARDWARE_NETWORK: "hardware_network",
+  SOFTWARE: "software",
+  WEB_ECOMMERCE: "web_ecommerce",
+  IOT_AI: "iot_ai",
+  COMPLIANCE: "compliance",
+}
+
 const REQ_SECTION_META: Record<string, {
-  label: string
   icon: React.ReactNode
   badge: string   // pill classes
   border: string  // left-border / card accent
   iconBg: string
 }> = {
   HARDWARE_NETWORK: {
-    label:  "Hardware & Network",
-    icon:   <Cpu         className="size-3" />,
-    badge:  "bg-sky-500/10 text-sky-400 border-sky-500/25",
+    icon: <Cpu className="size-3" />,
+    badge: "bg-sky-950/70 text-sky-300 border-sky-800/50",
     border: "border-l-sky-500/50",
-    iconBg: "bg-sky-500/10 border-sky-500/20 text-sky-400",
+    iconBg: "bg-sky-950/70 border-sky-800/50 text-sky-300",
   },
   SOFTWARE: {
-    label:  "Software",
-    icon:   <ClipboardList className="size-3" />,
-    badge:  "bg-violet-500/10 text-violet-400 border-violet-500/25",
+    icon: <ClipboardList className="size-3" />,
+    badge: "bg-violet-950/70 text-violet-300 border-violet-800/50",
     border: "border-l-violet-500/50",
-    iconBg: "bg-violet-500/10 border-violet-500/20 text-violet-400",
+    iconBg: "bg-violet-950/70 border-violet-800/50 text-violet-300",
   },
   WEB_ECOMMERCE: {
-    label:  "Web & E-commerce",
-    icon:   <Globe       className="size-3" />,
-    badge:  "bg-blue-500/10 text-blue-400 border-blue-500/25",
+    icon: <Globe className="size-3" />,
+    badge: "bg-blue-950/70 text-blue-300 border-blue-800/50",
     border: "border-l-blue-500/50",
-    iconBg: "bg-blue-500/10 border-blue-500/20 text-blue-400",
+    iconBg: "bg-blue-950/70 border-blue-800/50 text-blue-300",
   },
   IOT_AI: {
-    label:  "IoT & AI",
-    icon:   <Bot         className="size-3" />,
-    badge:  "bg-teal-500/10 text-teal-400 border-teal-500/25",
+    icon: <Bot className="size-3" />,
+    badge: "bg-teal-950/70 text-teal-300 border-teal-800/50",
     border: "border-l-teal-500/50",
-    iconBg: "bg-teal-500/10 border-teal-500/20 text-teal-400",
+    iconBg: "bg-teal-950/70 border-teal-800/50 text-teal-300",
   },
   COMPLIANCE: {
-    label:  "Compliance",
-    icon:   <ShieldCheck className="size-3" />,
-    badge:  "bg-rose-500/10 text-rose-400 border-rose-500/25",
+    icon: <ShieldCheck className="size-3" />,
+    badge: "bg-rose-950/70 text-rose-300 border-rose-800/50",
     border: "border-l-rose-500/50",
-    iconBg: "bg-rose-500/10 border-rose-500/20 text-rose-400",
+    iconBg: "bg-rose-950/70 border-rose-800/50 text-rose-300",
   },
 }
 
 function RequirementsTab({ surveyId }: { surveyId: number }) {
-  const [items,      setItems]      = useState<ClientRequirementRow[] | null>(null)
-  const [loading,    setLoading]    = useState(false)
-  const [adding,     setAdding]     = useState(false)
+  const t = useTranslations("siteSurveysTable")
+  const reqSectionLabel = (dbKey: string) =>
+    t(`sections.${REQ_SECTION_TO_I18N[dbKey] ?? "software"}` as any)
+  const [items, setItems] = useState<ClientRequirementRow[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [adding, setAdding] = useState(false)
   const [editTarget, setEditTarget] = useState<ClientRequirementRow | null>(null)
-  const [saving,      setSaving]      = useState(false)
-  const [deletingId,  setDeletingId]  = useState<number | null>(null)
-  const [generating,  setGenerating]  = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [generating, setGenerating] = useState(false)
 
   // form state
   const [fSection, setFSection] = useState<string>("SOFTWARE")
-  const [fTitle,   setFTitle]   = useState("")
-  const [fDesc,    setFDesc]    = useState("")
-  const [fFile,    setFFile]    = useState<File | null>(null)
+  const [fTitle, setFTitle] = useState("")
+  const [fDesc, setFDesc] = useState("")
+  const [fFile, setFFile] = useState<File | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
 
   async function generateDescription() {
@@ -300,7 +313,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
       {/* ── Loading ── */}
       {loading && (
         <div className="flex items-center gap-2 py-6 text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-          <Loader2 className="size-3.5 animate-spin" /> Loading requirements…
+          <Loader2 className="size-3.5 animate-spin" /> {t("requirementsTab.loading")}
         </div>
       )}
 
@@ -311,14 +324,14 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
             <ListChecks className="size-5" />
           </div>
           <div className="text-center">
-            <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>No requirements yet</p>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>Add client requirements per section</p>
+            <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>{t("requirementsTab.emptyTitle")}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{t("requirementsTab.emptyHint")}</p>
           </div>
           <button
             onClick={e => { e.stopPropagation(); openAdd() }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-[12px] font-semibold text-white transition-colors"
           >
-            <Plus className="size-3.5" /> Add requirement
+            <Plus className="size-3.5" /> {t("requirementsTab.add")}
           </button>
         </div>
       )}
@@ -336,7 +349,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                     {meta.icon}
                   </div>
                   <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--muted-foreground)" }}>
-                    {meta.label}
+                    {reqSectionLabel(sec)}
                   </span>
                   <span className={cn("ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border tabular-nums", meta.badge)}>
                     {grouped[sec].length}
@@ -395,7 +408,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                           onClick={e => { e.stopPropagation(); openEdit(r) }}
                           className="rounded-lg p-1.5 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors"
                           style={{ color: "var(--muted-foreground)" }}
-                          title="Edit"
+                          title={t("requirementsTab.edit")}
                         >
                           <Pencil className="size-3" />
                         </button>
@@ -404,7 +417,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                           disabled={deletingId === r.id}
                           className="rounded-lg p-1.5 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
                           style={{ color: "var(--muted-foreground)" }}
-                          title="Delete"
+                          title={t("requirementsTab.delete")}
                         >
                           {deletingId === r.id
                             ? <Loader2 className="size-3 animate-spin" />
@@ -434,7 +447,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                 {activeMeta.icon}
               </div>
               <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--foreground)" }}>
-                {editTarget ? "Edit Requirement" : "New Requirement"}
+                {editTarget ? t("requirementsTab.editTitle") : t("requirementsTab.newTitle")}
               </span>
             </div>
             <button
@@ -450,7 +463,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
           <div className="px-4 py-4 space-y-4">
             {/* Section picker — visual pills */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Section</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{t("requirementsTab.sectionLabel")}</label>
               <div className="flex flex-wrap gap-1.5">
                 {REQ_SECTION_VALUES.map(s => {
                   const m = REQ_SECTION_META[s]
@@ -466,7 +479,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                       )}
                       style={active ? {} : { color: "var(--muted-foreground)" }}
                     >
-                      {m.icon}{m.label}
+                      {m.icon}{reqSectionLabel(s)}
                     </button>
                   )
                 })}
@@ -476,13 +489,13 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
             {/* Title */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
-                Title <span className="text-rose-400">*</span>
+                {t("requirementsTab.titleLabel")} <span className="text-rose-400">*</span>
               </label>
               <input
                 required
                 value={fTitle}
                 onChange={e => setFTitle(e.target.value)}
-                placeholder="Requirement title…"
+                placeholder={t("requirementsTab.titlePlaceholder")}
                 className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all"
                 style={{ color: "var(--foreground)" }}
               />
@@ -491,30 +504,30 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
             {/* Description + AI */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Description</label>
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{t("requirementsTab.descriptionLabel")}</label>
                 <button
                   type="button"
                   disabled={generating || !fTitle.trim()}
                   onClick={e => { e.stopPropagation(); generateDescription() }}
-                  title={!fTitle.trim() ? "Enter a title first" : "Generate with AI"}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 hover:border-violet-500/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={!fTitle.trim() ? t("requirementsTab.enterTitleFirst") : t("requirementsTab.generateWithAi")}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border border-violet-800/50 bg-violet-950/70 text-violet-300 hover:bg-violet-900/80 hover:border-violet-700/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {generating ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
-                  {generating ? "Generating…" : "Generate with AI"}
+                  {generating ? t("requirementsTab.generating") : t("requirementsTab.generateWithAi")}
                 </button>
               </div>
               <div className="relative">
                 <textarea
                   value={fDesc}
                   onChange={e => setFDesc(e.target.value)}
-                  placeholder="Optional description — or use AI to generate one in Greek…"
+                  placeholder={t("requirementsTab.descriptionPlaceholder")}
                   rows={4}
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[12px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500/50 transition-all"
                   style={{ color: "var(--foreground)" }}
                 />
                 {generating && (
                   <div className="absolute inset-0 rounded-lg bg-[var(--background)]/60 flex items-center justify-center gap-2 text-[11px] text-violet-400 font-semibold backdrop-blur-[1px]">
-                    <Loader2 className="size-3.5 animate-spin" /> Generating description…
+                    <Loader2 className="size-3.5 animate-spin" /> {t("requirementsTab.generatingDescription")}
                   </div>
                 )}
               </div>
@@ -522,7 +535,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
 
             {/* Attachment */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Attachment</label>
+              <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>{t("requirementsTab.attachment")}</label>
 
               {editTarget?.fileUrl && !fFile && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20">
@@ -532,7 +545,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                     className="flex-1 text-[11px] font-medium text-indigo-400 hover:text-indigo-300 truncate">
                     {editTarget.fileName}
                   </a>
-                  <span className="text-[10px] shrink-0" style={{ color: "var(--muted-foreground)" }}>Replace below</span>
+                  <span className="text-[10px] shrink-0" style={{ color: "var(--muted-foreground)" }}>{t("requirementsTab.replaceBelow")}</span>
                 </div>
               )}
 
@@ -549,7 +562,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
                   style={fFile ? {} : { color: "var(--muted-foreground)" }}
                 >
                   {fFile ? <Check className="size-3" /> : <Plus className="size-3" />}
-                  {fFile ? fFile.name : "Choose file"}
+                  {fFile ? fFile.name : t("requirementsTab.chooseFile")}
                 </button>
                 {fFile && (
                   <button
@@ -574,7 +587,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
               className="text-[12px] font-semibold transition-colors hover:opacity-70"
               style={{ color: "var(--muted-foreground)" }}
             >
-              Cancel
+              {t("requirementsTab.cancel")}
             </button>
             <button
               type="submit"
@@ -582,7 +595,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-1.5 text-[12px] font-semibold text-white transition-colors"
             >
               {saving && <Loader2 className="size-3 animate-spin" />}
-              {editTarget ? "Save changes" : "Add requirement"}
+              {editTarget ? t("requirementsTab.saving") : t("requirementsTab.adding")}
             </button>
           </div>
         </form>
@@ -595,7 +608,7 @@ function RequirementsTab({ surveyId }: { surveyId: number }) {
           className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-semibold border border-dashed border-[var(--border)] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-colors"
           style={{ color: "var(--muted-foreground)" }}
         >
-          <Plus className="size-3" /> Add requirement
+          <Plus className="size-3" /> {t("requirementsTab.add")}
         </button>
       )}
     </div>
@@ -608,26 +621,103 @@ function ExpandedRow({
   filesRefreshKey,
   onUploadFiles,
   onOpenProposal,
+  onSectionRemoved,
 }: {
   survey: SurveyTableRow
   colSpan: number
   filesRefreshKey: number
   onUploadFiles: () => void
   onOpenProposal: () => void
+  onSectionRemoved: (surveyId: number, sectionKey: string) => void
 }) {
+  const t = useTranslations("siteSurveysTable")
+  const sectionLabel = (key: string) => {
+    const k = (key || "").toLowerCase()
+    if (["hardware_network", "software", "web_ecommerce", "compliance", "iot_ai"].includes(k)) {
+      return t(`sections.${k}` as any)
+    }
+    return key
+  }
+  const statusLabel = (status: string) => {
+    const k = (status || "").toLowerCase()
+    if (["draft", "scheduled", "in_progress", "completed", "cancelled"].includes(k)) {
+      return t(`status.${k}` as any)
+    }
+    return status
+  }
   type InvitationRow = {
     id: number; sectionKey: string; email: string
     expiresAt: string; completedAt: string | null; createdAt: string
   }
 
-  const [tab,           setTab]           = useState<ExpandedTab>("details")
-  const [files,         setFiles]         = useState<SurveyFileRow[] | null>(null)
-  const [filesLoading,  setFilesLoading]  = useState(false)
-  const [deletingId,    setDeletingId]    = useState<number | null>(null)
+  const [tab, setTab] = useState<ExpandedTab>("details")
+  const [files, setFiles] = useState<SurveyFileRow[] | null>(null)
+  const [filesLoading, setFilesLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [wizardSection, setWizardSection] = useState<string | null>(null)
-  const [sectionStats,  setSectionStats]  = useState<Record<string, { answered: number; total: number }>>({})
+  const [sectionStats, setSectionStats] = useState<Record<string, { answered: number; total: number }>>({})
   const [inviteSection, setInviteSection] = useState<string | null>(null)
-  const [invitations,   setInvitations]   = useState<InvitationRow[]>([])
+  const [invitations, setInvitations] = useState<InvitationRow[]>([])
+  const [deletingSection, setDeletingSection] = useState<string | null>(null)
+
+  async function handleRemoveSection(sectionKey: string) {
+    const label = sectionLabel(sectionKey)
+    setDeletingSection(sectionKey)
+    try {
+      const impact = await getSurveySectionImpact(survey.id, sectionKey)
+      if (!impact.ok) {
+        alert(impact.error)
+        return
+      }
+
+      const lines = [
+        `Πρόκειται να αφαιρέσετε την ενότητα «${label}» από αυτήν την έρευνα.`,
+        "",
+        "Θα διαγραφούν οριστικά:",
+        `  • ${impact.answers} απαντήσεις`,
+        `  • ${impact.history} καταγραφές ιστορικού`,
+        `  • ${impact.invitations} προσκλήσεις πελάτη`,
+        `  • ${impact.requirements} απαιτήσεις`,
+        "",
+        "Η ενέργεια δεν είναι αναστρέψιμη. Συνέχεια;",
+      ].join("\n")
+
+      if (!window.confirm(lines)) return
+
+      const res = await removeSurveySection(survey.id, sectionKey)
+      if (!res.ok) {
+        alert(res.error)
+        return
+      }
+
+      // Optimistic local cleanup
+      setSectionStats((prev) => {
+        const next = { ...prev }
+        delete next[sectionKey]
+        return next
+      })
+      setInvitations((prev) => prev.filter((i) => i.sectionKey !== sectionKey))
+      onSectionRemoved(survey.id, sectionKey)
+    } finally {
+      setDeletingSection(null)
+    }
+  }
+
+  type ResolvedQuestion = {
+    id: number; key: string; label: string; type: string
+    section: string; order: number
+    options: { id: number | string; label: string }[]
+  }
+  type ResultsMetadata = {
+    filledBy: string
+    filledByType: "ADMIN" | "CUSTOMER"
+    filledAt: string
+  }
+  const [resultsQuestions, setResultsQuestions] = useState<ResolvedQuestion[] | null>(null)
+  const [resultsAnswers, setResultsAnswers] = useState<Record<string, string | null> | null>(null)
+  const [resultsLoading, setResultsLoading] = useState(false)
+  const [resultsMetadata, setResultsMetadata] = useState<ResultsMetadata | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
 
   type HistoryEntry = {
     id: number
@@ -637,7 +727,7 @@ function ExpandedRow({
     createdAt: string
     question: { key: string; label: string; section: string }
   }
-  const [historyRows,    setHistoryRows]    = useState<HistoryEntry[] | null>(null)
+  const [historyRows, setHistoryRows] = useState<HistoryEntry[] | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
 
   async function loadHistory() {
@@ -660,6 +750,28 @@ function ExpandedRow({
     } catch { /* ignore */ }
   }
 
+  async function loadResults() {
+    setResultsLoading(true)
+    try {
+      const [questionsRes, resultsRes] = await Promise.all([
+        fetch(`/api/site-surveys/questions`),
+        fetch(`/api/site-surveys/${survey.id}/results`),
+      ])
+      if (!questionsRes.ok || !resultsRes.ok) return
+      const questions = await questionsRes.json() as ResolvedQuestion[]
+      const resultsData = await resultsRes.json() as { byKey: Record<string, string | null>; metadata: ResultsMetadata | null }
+      setResultsQuestions(questions)
+      setResultsAnswers(resultsData.byKey)
+      setResultsMetadata(resultsData.metadata)
+      // Initialize all sections as closed by default
+      const defaultExpanded: Record<string, boolean> = {}
+      const sections = new Set(questions.map(q => q.section.toLowerCase()))
+      sections.forEach(sec => { defaultExpanded[sec] = false })
+      setExpandedSections(defaultExpanded)
+    } catch { /* silently ignore */ }
+    finally { setResultsLoading(false) }
+  }
+
   async function loadSectionStats() {
     try {
       const [resultsRes, questionsRes] = await Promise.all([
@@ -668,7 +780,7 @@ function ExpandedRow({
       ])
       if (!resultsRes.ok || !questionsRes.ok) return
       const { results } = await resultsRes.json() as { results: { answerValue: string | null; question: { section: string } }[] }
-      const questions   = await questionsRes.json() as { section: string }[]
+      const questions = await questionsRes.json() as { section: string }[]
 
       const totals: Record<string, number> = {}
       for (const q of questions) {
@@ -712,8 +824,9 @@ function ExpandedRow({
 
   function handleTabChange(t: ExpandedTab) {
     setTab(t)
-    if (t === "files"   && files === null)       loadFiles()
-    if (t === "history" && historyRows === null)  loadHistory()
+    if (t === "files" && files === null) loadFiles()
+    if (t === "history" && historyRows === null) loadHistory()
+    if (t === "results" && resultsAnswers === null) loadResults()
   }
 
   async function handleDeleteFile(fileId: number) {
@@ -735,20 +848,21 @@ function ExpandedRow({
       <td colSpan={colSpan - 2} className="py-5 pr-6">
         {/* Tabs — bottom-border indicator style */}
         <div className="flex items-center gap-0 mb-5 border-b border-[var(--border)]">
-          {(["details", "sections", "branches", "files", "requirements", "proposal", "history"] as const).map(t => {
+          {(["details", "sections", "branches", "files", "requirements", "proposal", "results", "history"] as const).map(tk => {
             const label =
-              t === "details"      ? "Details"
-              : t === "sections"   ? `Sections (${survey.sections.length})`
-              : t === "branches"   ? `Branches (${survey.branchIds.length})`
-              : t === "files"      ? `Files${files ? ` (${files.length})` : ""}`
-              : t === "proposal"   ? "Proposal"
-              : t === "history"    ? "History"
-              : "Requirements"
-            const active = tab === t
+              tk === "details" ? t("tabs.details")
+                : tk === "sections" ? t("tabs.sections", { count: survey.sections.length })
+                  : tk === "branches" ? t("tabs.branches", { count: survey.branchIds.length })
+                    : tk === "files" ? (files ? t("tabs.filesWithCount", { count: files.length }) : t("tabs.files"))
+                      : tk === "proposal" ? t("tabs.proposal")
+                        : tk === "results" ? t("tabs.results")
+                          : tk === "history" ? t("tabs.history")
+                            : t("tabs.requirements")
+            const active = tab === tk
             return (
               <button
-                key={t}
-                onClick={e => { e.stopPropagation(); handleTabChange(t) }}
+                key={tk}
+                onClick={e => { e.stopPropagation(); handleTabChange(tk) }}
                 className={cn(
                   "relative px-3.5 py-2.5 text-[12px] font-medium transition-colors select-none flex items-center gap-1.5 -mb-px border-b-2",
                   active
@@ -756,12 +870,13 @@ function ExpandedRow({
                     : "text-[var(--muted-foreground)] border-transparent hover:text-[var(--foreground)] hover:border-[var(--border)]",
                 )}
               >
-                {t === "sections"     && <Tag          className="size-3" />}
-                {t === "branches"     && <Building2    className="size-3" />}
-                {t === "files"        && <Paperclip    className="size-3" />}
-                {t === "requirements" && <ListChecks   className="size-3" />}
-                {t === "proposal"     && <FileText     className="size-3" />}
-                {t === "history"      && <History      className="size-3" />}
+                {tk === "sections" && <Tag className="size-3" />}
+                {tk === "branches" && <Building2 className="size-3" />}
+                {tk === "files" && <Paperclip className="size-3" />}
+                {tk === "requirements" && <ListChecks className="size-3" />}
+                {tk === "proposal" && <FileText className="size-3" />}
+                {tk === "results" && <FileBarChart2 className="size-3" />}
+                {tk === "history" && <History className="size-3" />}
                 {label}
               </button>
             )
@@ -771,17 +886,17 @@ function ExpandedRow({
         {/* ── Details tab ── */}
         {tab === "details" && (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <DetailBlock label="Description" icon={<ClipboardList className="size-3" />}>
+            <DetailBlock label={t("detailsTab.description")} icon={<ClipboardList className="size-3" />}>
               <p className="text-[13px] leading-relaxed" style={{ color: "var(--foreground)" }}>
                 {survey.description || <span style={{ color: "var(--muted-foreground)" }}>—</span>}
               </p>
             </DetailBlock>
-            <DetailBlock label="Customer" icon={<Building2 className="size-3" />}>
+            <DetailBlock label={t("detailsTab.customer")} icon={<Building2 className="size-3" />}>
               <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {survey.customer.name ?? `#${survey.customer.id}`}
               </p>
             </DetailBlock>
-            <DetailBlock label="Surveyor" icon={<User className="size-3" />}>
+            <DetailBlock label={t("detailsTab.surveyor")} icon={<User className="size-3" />}>
               <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {survey.surveyor.name ?? survey.surveyor.email}
               </p>
@@ -789,17 +904,17 @@ function ExpandedRow({
                 <p className="text-[12px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>{survey.surveyor.email}</p>
               )}
             </DetailBlock>
-            <DetailBlock label="Date" icon={<Calendar className="size-3" />}>
+            <DetailBlock label={t("detailsTab.date")} icon={<Calendar className="size-3" />}>
               <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {new Date(survey.date).toLocaleDateString("el-GR")}
               </p>
             </DetailBlock>
-            <DetailBlock label="Status">
+            <DetailBlock label={t("detailsTab.status")}>
               <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium border", STATUS_STYLES[survey.status] ?? STATUS_STYLES.DRAFT)}>
-                {STATUS_LABELS[survey.status] ?? survey.status}
+                {statusLabel(survey.status)}
               </span>
             </DetailBlock>
-            <DetailBlock label="Last Updated">
+            <DetailBlock label={t("detailsTab.lastUpdated")}>
               <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                 {new Date(survey.updatedAt).toLocaleDateString("el-GR")}
               </p>
@@ -811,16 +926,16 @@ function ExpandedRow({
         {tab === "sections" && (
           <div className="space-y-2">
             {survey.sections.length === 0 ? (
-              <p className="text-[13px] py-4" style={{ color: "var(--muted-foreground)" }}>No sections selected.</p>
+              <p className="text-[13px] py-4" style={{ color: "var(--muted-foreground)" }}>{t("sectionsTab.empty")}</p>
             ) : survey.sections.map(s => {
-              const stats    = sectionStats[s]
+              const stats = sectionStats[s]
               const hasStats = stats && stats.total > 0
-              const allDone  = hasStats && stats.answered === stats.total
-              const started  = hasStats && stats.answered > 0 && !allDone
+              const allDone = hasStats && stats.answered === stats.total
+              const started = hasStats && stats.answered > 0 && !allDone
 
               const sectionInvites = invitations.filter(i => i.sectionKey === s)
               const completed = sectionInvites.find(i => i.completedAt !== null)
-              const pending   = !completed && sectionInvites.find(
+              const pending = !completed && sectionInvites.find(
                 i => i.completedAt === null && new Date(i.expiresAt) > new Date()
               )
 
@@ -832,8 +947,8 @@ function ExpandedRow({
                     completed
                       ? "border-emerald-500/25 bg-emerald-500/5"
                       : allDone
-                      ? "border-emerald-500/20 bg-emerald-500/[3%]"
-                      : "border-[var(--border)] bg-[var(--background)]",
+                        ? "border-emerald-500/20 bg-emerald-500/[3%]"
+                        : "border-[var(--border)] bg-[var(--background)]",
                   )}
                 >
                   {/* Main row */}
@@ -841,14 +956,14 @@ function ExpandedRow({
                     <div className={cn(
                       "size-7 rounded-md border flex items-center justify-center shrink-0",
                       completed || allDone
-                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-500"
-                        : SECTION_BADGE_STYLES[s] ?? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400",
+                        ? "bg-emerald-950/70 border-emerald-800/50 text-emerald-300"
+                        : SECTION_BADGE_STYLES[s] ?? "bg-indigo-950/70 border-indigo-800/50 text-indigo-300",
                     )}>
                       {(completed || allDone) ? <Check className="size-3.5" strokeWidth={2.5} /> : SECTION_ICONS[s]}
                     </div>
 
                     <p className="text-[13px] font-semibold flex-1" style={{ color: "var(--foreground)" }}>
-                      {SECTION_LABELS[s] ?? s}
+                      {sectionLabel(s)}
                     </p>
 
                     {/* Q&A progress badge */}
@@ -856,10 +971,10 @@ function ExpandedRow({
                       <span className={cn(
                         "text-[11px] font-semibold px-2 py-0.5 rounded-full ring-1 ring-inset tabular-nums",
                         allDone
-                          ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/25"
+                          ? "bg-emerald-950/70 text-emerald-300 ring-emerald-800/60"
                           : started
-                          ? "bg-amber-500/10 text-amber-400 ring-amber-500/25"
-                          : "bg-[var(--muted)]/50 text-[var(--muted-foreground)] ring-[var(--border)]",
+                            ? "bg-amber-950/70 text-amber-300 ring-amber-800/60"
+                            : "bg-zinc-800/80 text-zinc-400 ring-zinc-700/60",
                       )}>
                         {stats.answered}/{stats.total}
                       </span>
@@ -867,13 +982,13 @@ function ExpandedRow({
 
                     {/* Invitation status badge */}
                     {completed && (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ring-1 ring-inset bg-emerald-500/10 text-emerald-400 ring-emerald-500/25">
-                        <Lock className="size-3" /> Customer submitted
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ring-1 ring-inset bg-emerald-950/70 text-emerald-300 ring-emerald-800/60">
+                        <Lock className="size-3" /> {t("invitation.customerSubmitted")}
                       </span>
                     )}
                     {pending && !completed && (
-                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ring-1 ring-inset bg-amber-500/10 text-amber-400 ring-amber-500/25">
-                        <Clock className="size-3" /> Awaiting response
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full ring-1 ring-inset bg-amber-950/70 text-amber-300 ring-amber-800/60">
+                        <Clock className="size-3" /> {t("invitation.awaitingResponse")}
                       </span>
                     )}
 
@@ -885,7 +1000,7 @@ function ExpandedRow({
                         className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
                         style={{ color: "var(--foreground)" }}
                       >
-                        <PlayCircle className="size-3.5 text-indigo-400" /> Fill out
+                        <PlayCircle className="size-3.5 text-indigo-400" /> {t("sectionsTab.fillOut")}
                       </button>
                       <button
                         type="button"
@@ -893,7 +1008,19 @@ function ExpandedRow({
                         className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
                         style={{ color: "var(--foreground)" }}
                       >
-                        <Mail className="size-3.5 text-violet-400" /> Send to customer
+                        <Mail className="size-3.5 text-violet-400" /> {t("sectionsTab.sendToCustomer")}
+                      </button>
+                      <button
+                        type="button"
+                        title={t("sectionsTab.removeSection")}
+                        disabled={deletingSection === s}
+                        onClick={e => { e.stopPropagation(); handleRemoveSection(s) }}
+                        className="inline-flex items-center justify-center rounded-md border border-[var(--border)] size-[30px] transition-colors hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        {deletingSection === s
+                          ? <Loader2 className="size-3.5 animate-spin" />
+                          : <Trash2 className="size-3.5" />}
                       </button>
                     </div>
                   </div>
@@ -903,7 +1030,7 @@ function ExpandedRow({
                     <div className="flex items-center gap-2 px-4 pb-2.5 pt-1 border-t border-emerald-500/10">
                       <UserCheck className="size-3.5 text-emerald-500 shrink-0" />
                       <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                        Submitted by{" "}
+                        {t("invitation.submittedBy")}{" "}
                         <span className="font-semibold text-emerald-400">{completed.email}</span>
                         {" · "}
                         <span style={{ color: "var(--foreground)" }}>
@@ -919,9 +1046,9 @@ function ExpandedRow({
                     <div className="flex items-center gap-2 px-4 pb-2.5 pt-1 border-t border-amber-500/10">
                       <Clock className="size-3.5 text-amber-500 shrink-0" />
                       <p className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
-                        Link sent to{" "}
+                        {t("invitation.linkSentTo")}{" "}
                         <span className="font-semibold text-amber-400">{pending.email}</span>
-                        {" · expires "}
+                        {` · ${t("invitation.expires")} `}
                         <span style={{ color: "var(--foreground)" }}>
                           {new Date(pending.expiresAt).toLocaleDateString("el-GR", {
                             day: "2-digit", month: "short", year: "numeric",
@@ -943,7 +1070,7 @@ function ExpandedRow({
           surveyId={survey.id}
           surveyName={survey.name}
           sectionKey={wizardSection ?? ""}
-          sectionLabel={SECTION_LABELS[wizardSection ?? ""] ?? wizardSection ?? ""}
+          sectionLabel={wizardSection ? sectionLabel(wizardSection) : ""}
           customerCompletedBy={
             wizardSection
               ? invitations.find(i => i.sectionKey === wizardSection && i.completedAt !== null)?.email
@@ -958,7 +1085,7 @@ function ExpandedRow({
           surveyId={survey.id}
           surveyName={survey.name}
           sectionKey={inviteSection ?? ""}
-          sectionLabel={SECTION_LABELS[inviteSection ?? ""] ?? inviteSection ?? ""}
+          sectionLabel={inviteSection ? sectionLabel(inviteSection) : ""}
         />
 
         {/* ── Branches tab ── */}
@@ -967,18 +1094,20 @@ function ExpandedRow({
             {survey.branchIds.length === 0 ? (
               <div className="flex items-center gap-2.5 py-6 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
                 <Building2 className="size-4 shrink-0" />
-                All branches / HQ — no specific branches selected.
+                {t("branchesTab.empty")}
               </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-[12px] font-medium mb-3" style={{ color: "var(--muted-foreground)" }}>
-                  {survey.branchIds.length} branch{survey.branchIds.length !== 1 ? "es" : ""} selected
+                  {survey.branchIds.length === 1
+                    ? t("branchesTab.selectedSingular", { count: survey.branchIds.length })
+                    : t("branchesTab.selected", { count: survey.branchIds.length })}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {survey.branchIds.map(id => (
                     <span key={id} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--background)]/60 px-3 py-1.5 text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>
                       <Building2 className="size-3.5 text-indigo-400" />
-                      Branch #{id}
+                      {t("branchesTab.branchPrefix")} #{id}
                     </span>
                   ))}
                 </div>
@@ -993,14 +1122,14 @@ function ExpandedRow({
 
             {filesLoading && (
               <div className="flex items-center gap-2 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
-                <Loader2 className="size-4 animate-spin" /> Loading files…
+                <Loader2 className="size-4 animate-spin" /> {t("filesTab.loading")}
               </div>
             )}
 
             {!filesLoading && files && files.length === 0 && (
               <div className="flex items-center gap-2.5 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
                 <Paperclip className="size-4 shrink-0" />
-                No files uploaded yet.
+                {t("filesTab.empty")}
               </div>
             )}
 
@@ -1013,13 +1142,13 @@ function ExpandedRow({
                   <p className="text-[14px] font-semibold truncate" style={{ color: "var(--foreground)" }}>{f.name}</p>
                   <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                     {f.type && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ring-1 ring-inset bg-indigo-500/10 text-indigo-400 ring-indigo-500/20">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ring-1 ring-inset bg-indigo-950/70 text-indigo-300 ring-indigo-800/50">
                         {f.type}
                       </span>
                     )}
                     {f.section && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ring-1 ring-inset bg-amber-500/10 text-amber-400 ring-amber-500/20">
-                        {SECTION_LABELS[f.section] ?? f.section}
+                      <span className="px-2 py-0.5 rounded text-[11px] font-medium uppercase tracking-wide ring-1 ring-inset bg-amber-950/70 text-amber-300 ring-amber-800/50">
+                        {sectionLabel(f.section)}
                       </span>
                     )}
                     <span className="text-[12px]" style={{ color: "var(--muted-foreground)" }}>
@@ -1035,7 +1164,7 @@ function ExpandedRow({
                     onClick={e => e.stopPropagation()}
                     className="rounded-lg p-2 hover:bg-indigo-500/10 hover:text-indigo-300 transition-colors"
                     style={{ color: "var(--muted-foreground)" }}
-                    title="Download"
+                    title={t("filesTab.download")}
                   >
                     <Download className="size-4" />
                   </a>
@@ -1044,7 +1173,7 @@ function ExpandedRow({
                     disabled={deletingId === f.id}
                     className="rounded-lg p-2 hover:bg-rose-500/10 hover:text-rose-400 transition-colors disabled:opacity-50"
                     style={{ color: "var(--muted-foreground)" }}
-                    title="Delete"
+                    title={t("filesTab.delete")}
                   >
                     {deletingId === f.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                   </button>
@@ -1059,7 +1188,7 @@ function ExpandedRow({
                 style={{ color: "var(--muted-foreground)" }}
               >
                 <Plus className="size-4" />
-                Upload file
+                {t("filesTab.upload")}
               </button>
             )}
           </div>
@@ -1079,15 +1208,258 @@ function ExpandedRow({
               <FileText className="size-6" />
             </div>
             <div className="text-center">
-              <p className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>Proposal</p>
-              <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>Create or edit the proposal for this survey</p>
+              <p className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>{t("proposalTab.title")}</p>
+              <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>{t("proposalTab.subtitle")}</p>
             </div>
             <button
               onClick={e => { e.stopPropagation(); onOpenProposal() }}
               className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-[13px] font-semibold text-white transition-colors"
             >
-              <FileText className="size-4" /> Open Proposal
+              <FileText className="size-4" /> {t("proposalTab.open")}
             </button>
+          </div>
+        )}
+
+        {/* ── Results tab ── */}
+        {tab === "results" && (
+          <div onClick={e => e.stopPropagation()}>
+            {resultsLoading && (
+              <div className="flex items-center gap-2 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
+                <Loader2 className="size-4 animate-spin" /> {t("resultsTab.loading")}
+              </div>
+            )}
+
+            {!resultsLoading && (!resultsQuestions || resultsQuestions.length === 0) && (
+              <div className="flex flex-col items-center justify-center gap-3 py-12">
+                <div className="size-12 rounded-xl bg-slate-500/15 border border-slate-500/30 flex items-center justify-center text-slate-400">
+                  <FileBarChart2 className="size-6" />
+                </div>
+                <div className="text-center">
+                  <p className="text-[15px] font-semibold" style={{ color: "var(--foreground)" }}>{t("resultsTab.noneTitle")}</p>
+                  <p className="text-[13px] mt-1" style={{ color: "var(--muted-foreground)" }}>{t("resultsTab.noneSubtitle")}</p>
+                </div>
+              </div>
+            )}
+
+            {!resultsLoading && resultsQuestions && resultsQuestions.length > 0 && resultsAnswers && (() => {
+              const parseDevices = (value: string | null | undefined) => {
+                if (!value || value === "[]") return []
+                try {
+                  const arr = JSON.parse(value)
+                  return Array.isArray(arr) ? arr : []
+                } catch { return [] }
+              }
+
+              const formatAnswer = (answerValue: string | null | undefined, type: string, options: any[]) => {
+                if (type === "DEVICE_LIST") {
+                  const devices = parseDevices(answerValue)
+                  if (devices.length === 0) return { text: t("resultsTab.noDevicesRecorded"), answered: false }
+                  return {
+                    text: devices.map((d: any, i: number) =>
+                      `#${i + 1}: ${[d.brand, d.model].filter(Boolean).join(" — ")}` +
+                      (d.serial ? ` | S/N: ${d.serial}` : "") +
+                      (d.location ? ` | ${d.location}` : "") +
+                      (d.ip ? ` | IP: ${d.ip}` : "")
+                    ).join("\n"),
+                    answered: true,
+                  }
+                }
+                if (answerValue === null || answerValue === undefined || answerValue === "" || answerValue === "[]") {
+                  return { text: t("resultsTab.noAnswer"), answered: false }
+                }
+                if (type === "BOOLEAN") {
+                  const text = answerValue === "true" ? t("resultsTab.yes") : answerValue === "false" ? t("resultsTab.no") : answerValue
+                  return { text, answered: true }
+                }
+                if (type === "DROPDOWN") {
+                  const match = options.find(o => String(o.id) === String(answerValue))
+                  return { text: match?.label ?? answerValue, answered: true }
+                }
+                if (type === "MULTI_SELECT") {
+                  try {
+                    const ids: (string | number)[] = JSON.parse(answerValue)
+                    if (!Array.isArray(ids) || ids.length === 0) return { text: t("resultsTab.noAnswer"), answered: false }
+                    const labels = ids.map(id => options.find(o => String(o.id) === String(id))?.label ?? String(id))
+                    return { text: labels.join(", "), answered: true }
+                  } catch {
+                    return { text: answerValue, answered: true }
+                  }
+                }
+                return { text: answerValue, answered: true }
+              }
+
+              const bySection: Record<string, typeof resultsQuestions> = {}
+              for (const q of resultsQuestions) {
+                const sec = q.section.toLowerCase()
+                if (!bySection[sec]) bySection[sec] = []
+                bySection[sec].push(q)
+              }
+
+              return (
+                <div className="space-y-5">
+                  {/* Filled by metadata */}
+                  {resultsMetadata && (
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-4 py-3 flex items-center gap-3">
+                      <div className="size-8 rounded-full flex items-center justify-center bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 shrink-0">
+                        {resultsMetadata.filledByType === "CUSTOMER" ? <UserCheck className="size-4" /> : <User className="size-4" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-semibold" style={{ color: "var(--foreground)" }}>
+                          {resultsMetadata.filledByType === "CUSTOMER" ? t("resultsTab.filledByCustomer") : t("resultsTab.filledByAdmin")}
+                        </p>
+                        <p className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                          {resultsMetadata.filledBy} • {new Date(resultsMetadata.filledAt).toLocaleDateString("el-GR")} {new Date(resultsMetadata.filledAt).toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sections as accordions - only show sections with filled answers */}
+                  {Object.entries(bySection).map(([sec, questions]) => {
+                    const answered = questions.filter(q => {
+                      const v = resultsAnswers[q.key]
+                      if (q.type === "DEVICE_LIST") return parseDevices(v).length > 0
+                      return v !== null && v !== undefined && v !== "" && v !== "[]"
+                    }).length
+
+                    // Skip sections with no answers
+                    if (answered === 0) return null
+
+                    const isExpanded = expandedSections[sec] ?? false
+
+                    return (
+                      <div key={sec} className={cn("rounded-2xl border overflow-hidden", SECTION_COLORS[sec]?.border ?? "border-[var(--border)]")}>
+                        {/* Section header - clickable */}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            setExpandedSections(prev => ({ ...prev, [sec]: !prev[sec] }))
+                          }}
+                          className={cn("w-full flex items-center gap-3 px-5 py-3.5 transition-colors hover:brightness-110", SECTION_COLORS[sec]?.bg ?? "bg-[var(--muted)]/20")}
+                        >
+                          <div className={cn("size-7 rounded-lg flex items-center justify-center border shrink-0", SECTION_COLORS[sec]?.badge ?? "bg-indigo-950/70 border-indigo-800/50 text-indigo-300")}>
+                            {SECTION_ICONS[sec]}
+                          </div>
+                          <p className="text-[14px] font-bold flex-1 text-left" style={{ color: "var(--foreground)" }}>
+                            {sectionLabel(sec)}
+                          </p>
+                          <span className={cn("text-[11px] font-semibold px-2.5 py-1 rounded-full border tabular-nums shrink-0",
+                            answered === questions.length && questions.length > 0
+                              ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+                              : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60"
+                          )}>
+                            {t("resultsTab.answered", { answered, total: questions.length })}
+                          </span>
+                          <div className="size-5 flex items-center justify-center text-[var(--muted-foreground)]">
+                            {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                          </div>
+                        </button>
+
+                        {/* Questions - only show when expanded */}
+                        {isExpanded && (
+                          <div className="divide-y divide-[var(--border)]">
+                            {questions.map((q, idx) => {
+                              const rawVal = resultsAnswers[q.key]
+                              const { text, answered: isAnswered } = formatAnswer(rawVal, q.type, q.options)
+
+                              if (q.type === "DEVICE_LIST") {
+                                const devices = parseDevices(rawVal)
+                                return (
+                                  <div key={q.id} className="px-5 py-4 hover:bg-[var(--muted)]/20 transition-colors">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <span className={cn(
+                                        "size-6 rounded-full flex items-center justify-center text-[10px] font-black tabular-nums border shrink-0",
+                                        devices.length > 0
+                                          ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+                                          : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60",
+                                      )}>
+                                        {devices.length > 0 ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : idx + 1}
+                                      </span>
+                                      <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>{q.label}</p>
+                                      {devices.length > 0 && (
+                                        <span className="text-[11px] font-semibold text-emerald-400 tabular-nums">
+                                          {devices.length === 1
+                                            ? t("resultsTab.devicesSingular", { count: devices.length })
+                                            : t("resultsTab.devices", { count: devices.length })}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {devices.length === 0 ? (
+                                      <p className="ml-9 text-[12px] italic" style={{ color: "var(--muted-foreground)" }}>{t("resultsTab.noDevicesRecorded")}</p>
+                                    ) : (
+                                      <div className="ml-9 space-y-1.5">
+                                        {devices.map((d: any, di: number) => (
+                                          <div key={di} className="rounded-lg border border-[var(--border)] bg-[var(--muted)]/10 px-3 py-2.5 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+                                            <div>
+                                              <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--muted-foreground)" }}>{t("resultsTab.brandModel")}</p>
+                                              <p className="text-[12px]" style={{ color: d.brand || d.model ? "var(--foreground)" : "var(--muted-foreground)" }}>
+                                                {[d.brand, d.model].filter(Boolean).join(" — ") || "—"}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--muted-foreground)" }}>{t("resultsTab.serial")}</p>
+                                              <p className="text-[12px] font-mono" style={{ color: d.serial ? "var(--foreground)" : "var(--muted-foreground)" }}>
+                                                {d.serial || "—"}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--muted-foreground)" }}>{t("resultsTab.location")}</p>
+                                              <p className="text-[12px]" style={{ color: d.location ? "var(--foreground)" : "var(--muted-foreground)" }}>
+                                                {d.location || "—"}
+                                              </p>
+                                            </div>
+                                            {d.ip && (
+                                              <div>
+                                                <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: "var(--muted-foreground)" }}>{t("resultsTab.ip")}</p>
+                                                <p className="text-[12px] font-mono" style={{ color: "var(--foreground)" }}>
+                                                  {d.ip}
+                                                </p>
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <div key={q.id} className="flex gap-4 px-5 py-4 hover:bg-[var(--muted)]/20 transition-colors">
+                                  <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
+                                    <span className={cn(
+                                      "size-6 rounded-full flex items-center justify-center text-[10px] font-black tabular-nums border",
+                                      isAnswered
+                                        ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+                                        : "bg-zinc-800/80 text-zinc-400 border-zinc-700/60",
+                                    )}>
+                                      {isAnswered ? <CheckCircle2 className="size-3.5 text-emerald-400" /> : idx + 1}
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-semibold leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+                                      {q.label}
+                                    </p>
+                                    <div className={cn(
+                                      "rounded-lg px-3 py-2 text-[13px] border whitespace-pre-wrap",
+                                      isAnswered
+                                        ? "bg-[var(--muted)]/30 border-[var(--border)] text-[var(--foreground)]"
+                                        : "bg-[var(--muted)]/10 border-dashed border-[var(--border)] text-[var(--muted-foreground)] italic",
+                                    )}>
+                                      {text}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -1096,14 +1468,14 @@ function ExpandedRow({
           <div onClick={e => e.stopPropagation()}>
             {historyLoading && (
               <div className="flex items-center gap-2 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
-                <Loader2 className="size-4 animate-spin" /> Loading history…
+                <Loader2 className="size-4 animate-spin" /> {t("historyTab.loading")}
               </div>
             )}
 
             {!historyLoading && historyRows !== null && historyRows.length === 0 && (
               <div className="flex items-center gap-2.5 py-8 text-[13px]" style={{ color: "var(--muted-foreground)" }}>
                 <History className="size-4 shrink-0" />
-                No changes recorded yet.
+                {t("historyTab.empty")}
               </div>
             )}
 
@@ -1124,7 +1496,7 @@ function ExpandedRow({
                           {SECTION_ICONS[sec]}
                         </span>
                         <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
-                          {SECTION_LABELS[sec] ?? sec}
+                          {sectionLabel(sec)}
                         </p>
                       </div>
 
@@ -1136,11 +1508,11 @@ function ExpandedRow({
                             <span className={cn(
                               "shrink-0 mt-0.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
                               h.changedByType === "CUSTOMER"
-                                ? "bg-emerald-500/10 text-emerald-400 ring-emerald-500/25"
-                                : "bg-indigo-500/10 text-indigo-400 ring-indigo-500/25",
+                                ? "bg-emerald-950/70 text-emerald-300 ring-emerald-800/60"
+                                : "bg-indigo-950/70 text-indigo-300 ring-indigo-800/60",
                             )}>
                               {h.changedByType === "CUSTOMER" ? <UserCheck className="size-3" /> : <User className="size-3" />}
-                              {h.changedByType === "CUSTOMER" ? "Customer" : "Admin"}
+                              {h.changedByType === "CUSTOMER" ? t("historyTab.customer") : t("historyTab.admin")}
                             </span>
 
                             {/* Detail */}
@@ -1152,9 +1524,9 @@ function ExpandedRow({
                                 {h.changedBy}
                                 {h.answerValue
                                   ? <> · <span style={{ color: "var(--foreground)" }}>
-                                      {h.answerValue.length > 80 ? h.answerValue.slice(0, 80) + "…" : h.answerValue}
-                                    </span></>
-                                  : <span className="italic"> · cleared</span>
+                                    {h.answerValue.length > 80 ? h.answerValue.slice(0, 80) + "…" : h.answerValue}
+                                  </span></>
+                                  : <span className="italic"> · {t("historyTab.cleared")}</span>
                                 }
                               </p>
                             </div>
@@ -1202,27 +1574,46 @@ interface Props {
 }
 
 export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal, users, customerOptions }: Props) {
-  const [surveys,    setSurveys]    = useState(initialSurveys)
-  const [total,      setTotal]      = useState(initialTotal)
-  const [search,     setSearch]     = useState("")
-  const [page,       setPage]       = useState(1)
-  const [sortField,  setSortField]  = useState<SortField>("date")
-  const [sortDir,    setSortDir]    = useState<"asc" | "desc">("desc")
-  const [loading,    setLoading]    = useState(false)
+  const t = useTranslations("siteSurveysTable")
+  const sectionLabel = (key: string) => {
+    const k = (key || "").toLowerCase()
+    if (["hardware_network", "software", "web_ecommerce", "compliance", "iot_ai"].includes(k)) {
+      return t(`sections.${k}` as any)
+    }
+    return key
+  }
+  const statusLabel = (status: string) => {
+    const k = (status || "").toLowerCase()
+    if (["draft", "scheduled", "in_progress", "completed", "cancelled"].includes(k)) {
+      return t(`status.${k}` as any)
+    }
+    return status
+  }
+  const columnLabel = (key: string) => {
+    if (COLUMN_I18N_KEYS[key]) return t(`columns.${COLUMN_I18N_KEYS[key]}` as any)
+    return key
+  }
+  const [surveys, setSurveys] = useState(initialSurveys)
+  const [total, setTotal] = useState(initialTotal)
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [sortField, setSortField] = useState<SortField>("date")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  const [loading, setLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [selected,   setSelected]   = useState<Set<number>>(new Set())
-  const [deletingId,       setDeletingId]       = useState<number | null>(null)
-  const [dialogOpen,       setDialogOpen]       = useState(false)
-  const [editTarget,       setEditTarget]       = useState<SurveyTableRow | null>(null)
-  const [surveyCustomer,   setSurveyCustomer]   = useState<SurveyCustomer | null>(null)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editTarget, setEditTarget] = useState<SurveyTableRow | null>(null)
+  const [surveyCustomer, setSurveyCustomer] = useState<SurveyCustomer | null>(null)
   const [fileUploadSurvey, setFileUploadSurvey] = useState<SurveyTableRow | null>(null)
-  const [reportSurvey,     setReportSurvey]     = useState<SurveyTableRow | null>(null)
-  const [proposalSurvey,   setProposalSurvey]   = useState<SurveyTableRow | null>(null)
-  const [mailSurvey,       setMailSurvey]       = useState<SurveyTableRow | null>(null)
+  const [reportSurvey, setReportSurvey] = useState<SurveyTableRow | null>(null)
+  const [proposalSurvey, setProposalSurvey] = useState<SurveyTableRow | null>(null)
+  const [mailSurvey, setMailSurvey] = useState<SurveyTableRow | null>(null)
   // Incremented after each upload to signal ExpandedRow to reload files
   const [filesRefreshKeys, setFilesRefreshKeys] = useState<Record<number, number>>({})
 
-  const [, startDelete]   = useTransition()
+  const [, startDelete] = useTransition()
   const [, startEditLoad] = useTransition()
 
   const { visibleCols, toggleCol, pageSize, setPageSize, colWidths, setColWidth, hydrated } =
@@ -1247,15 +1638,15 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
     window.addEventListener("mouseup", onUp)
   }
 
-  const totalPages  = Math.max(1, Math.ceil(total / pageSize))
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const visibleDefs = COLUMNS.filter(c => visibleCols.has(c.key))
   // checkbox + chevron + cols + actions
-  const COL_COUNT   = 1 + 1 + visibleDefs.length + 1
+  const COL_COUNT = 1 + 1 + visibleDefs.length + 1
 
   // ─── Selection ────────────────────────────────────────────────────────────
 
   const pageIds = surveys.map(s => s.id)
-  const allSel  = pageIds.length > 0 && pageIds.every(id => selected.has(id))
+  const allSel = pageIds.length > 0 && pageIds.every(id => selected.has(id))
   const someSel = pageIds.some(id => selected.has(id)) && !allSel
 
   function toggleAll() {
@@ -1277,21 +1668,21 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
     setLoading(true)
     try {
       const params = new URLSearchParams({
-        q:      opts.q    ?? search,
-        sort:   opts.sort ?? sortField,
-        dir:    opts.dir  ?? sortDir,
-        limit:  String(opts.limit ?? pageSize),
+        q: opts.q ?? search,
+        sort: opts.sort ?? sortField,
+        dir: opts.dir ?? sortDir,
+        limit: String(opts.limit ?? pageSize),
         offset: String(((opts.pg ?? page) - 1) * (opts.limit ?? pageSize)),
       })
-      const res  = await fetch(`/api/site-surveys?${params}`)
+      const res = await fetch(`/api/site-surveys?${params}`)
       const data = await res.json()
       setSurveys(data.surveys.map((s: any) => ({
         ...s,
-        date:      new Date(s.date).toISOString(),
+        date: new Date(s.date).toISOString(),
         createdAt: new Date(s.createdAt).toISOString(),
         updatedAt: new Date(s.updatedAt).toISOString(),
-        branchIds: s.branchIds  ?? [],
-        sections:  s.sections   ?? [],
+        branchIds: s.branchIds ?? [],
+        sections: s.sections ?? [],
       })))
       setTotal(data.total)
     } finally {
@@ -1385,7 +1776,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                 return (
                   <span
                     key={sec}
-                    title={customerDone ? `Customer submitted this section` : undefined}
+                    title={customerDone ? t("invitation.customerSubmittedTitle") : undefined}
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border",
                       customerDone
@@ -1394,7 +1785,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                     )}
                   >
                     {customerDone ? <Lock className="size-2.5" /> : SECTION_ICONS[sec]}
-                    {SECTION_LABELS[sec] ?? sec}
+                    {sectionLabel(sec)}
                   </span>
                 )
               })}
@@ -1405,7 +1796,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
         return (
           <td key="status" className="px-3 py-3">
             <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border", STATUS_STYLES[s.status] ?? STATUS_STYLES.DRAFT)}>
-              {STATUS_LABELS[s.status] ?? s.status}
+              {statusLabel(s.status)}
             </span>
           </td>
         )
@@ -1428,7 +1819,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[var(--muted-foreground)]" />
           <input
             type="search"
-            placeholder="Search surveys, customers, surveyors…"
+            placeholder={t("search")}
             value={search}
             onChange={e => handleSearch(e.target.value)}
             className="w-full rounded-xl border border-[var(--input)] bg-[var(--background)] pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
@@ -1438,8 +1829,8 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
         {/* Bulk bar */}
         {selected.size > 0 && (
           <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-1.5">
-            <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{selected.size} selected</span>
-            <button onClick={() => setSelected(new Set())} className="text-xs" style={{ color: "var(--muted-foreground)" }}>Clear</button>
+            <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{t("actions.selected", { count: selected.size })}</span>
+            <button onClick={() => setSelected(new Set())} className="text-xs" style={{ color: "var(--muted-foreground)" }}>{t("actions.clear")}</button>
           </div>
         )}
 
@@ -1448,14 +1839,14 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm hover:bg-[var(--muted)] transition-colors" style={{ color: "var(--muted-foreground)" }}>
-                <Columns3 className="size-3.5" /> Columns
+                <Columns3 className="size-3.5" /> {t("actions.columns")}
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content align="end" className="z-50 min-w-44 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl p-1 animate-in fade-in zoom-in-95 duration-150">
                 {COLUMNS.map(col => {
                   const isVisible = visibleCols.has(col.key)
-                  const locked    = col.alwaysVisible
+                  const locked = col.alwaysVisible
                   return (
                     <DropdownMenu.Item
                       key={col.key}
@@ -1465,8 +1856,8 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                       <div className={cn("size-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors", isVisible ? "bg-[var(--primary)] border-[var(--primary)]" : "border-[var(--border)]")}>
                         {isVisible && <Check className="size-2.5 text-white" strokeWidth={3} />}
                       </div>
-                      <span style={{ color: "var(--foreground)" }}>{col.label}</span>
-                      {locked && <span className="text-[10px] ml-auto" style={{ color: "var(--muted-foreground)" }}>locked</span>}
+                      <span style={{ color: "var(--foreground)" }}>{columnLabel(col.key)}</span>
+                      {locked && <span className="text-[10px] ml-auto" style={{ color: "var(--muted-foreground)" }}>{t("actions.locked")}</span>}
                     </DropdownMenu.Item>
                   )
                 })}
@@ -1475,7 +1866,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           </DropdownMenu.Root>
 
           <Btn size="sm" onClick={openNew}>
-            <Plus className="size-3.5" /> New Survey
+            <Plus className="size-3.5" /> {t("actions.new")}
           </Btn>
         </div>
       </div>
@@ -1516,7 +1907,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                     )}
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className="truncate">{col.label}</span>
+                      <span className="truncate">{columnLabel(col.key)}</span>
                       {col.sortable && (
                         sortField === col.key
                           ? sortDir === "asc"
@@ -1548,12 +1939,12 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                 <tr><td colSpan={COL_COUNT} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <ClipboardList className="size-7 opacity-30" style={{ color: "var(--muted-foreground)" }} />
-                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>No surveys found</p>
+                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{t("empty.noSurveys")}</p>
                   </div>
                 </td></tr>
               )}
               {!loading && surveys.map((s, i) => {
-                const isSel   = selected.has(s.id)
+                const isSel = selected.has(s.id)
                 const expanded = expandedId === s.id
                 return (
                   <React.Fragment key={s.id}>
@@ -1597,31 +1988,31 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                           <DropdownMenu.Portal>
                             <DropdownMenu.Content align="end" className="z-50 min-w-44 rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl p-1 animate-in fade-in zoom-in-95 duration-150">
                               <DropdownMenu.Item onSelect={() => openEdit(s)} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors">
-                                <Pencil className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Edit
+                                <Pencil className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> {t("actions.edit")}
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
                                 onSelect={() => setReportSurvey(s)}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
-                                <FileBarChart2 className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> View Report
+                                <FileBarChart2 className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> {t("actions.viewReport")}
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
                                 onSelect={() => setProposalSurvey(s)}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
-                                <FileText className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Proposal
+                                <FileText className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> {t("actions.proposal")}
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
                                 onSelect={() => { setFileUploadSurvey(s); setExpandedId(s.id) }}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
-                                <Paperclip className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Upload Files
+                                <Paperclip className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> {t("actions.uploadFiles")}
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
                                 onSelect={() => setMailSurvey(s)}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
-                                <Send className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> Send Mail
+                                <Send className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> {t("actions.sendMail")}
                               </DropdownMenu.Item>
                               <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
                               <DropdownMenu.Item
@@ -1629,7 +2020,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                                 disabled={deletingId === s.id}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none text-[var(--destructive)] hover:bg-[var(--destructive)]/8 transition-colors disabled:opacity-50 disabled:pointer-events-none"
                               >
-                                <Trash2 className="size-3.5" /> Delete
+                                <Trash2 className="size-3.5" /> {t("actions.delete")}
                               </DropdownMenu.Item>
                             </DropdownMenu.Content>
                           </DropdownMenu.Portal>
@@ -1644,6 +2035,15 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                         filesRefreshKey={filesRefreshKeys[s.id] ?? 0}
                         onUploadFiles={() => setFileUploadSurvey(s)}
                         onOpenProposal={() => setProposalSurvey(s)}
+                        onSectionRemoved={(surveyId, sectionKey) => {
+                          setSurveys((prev) =>
+                            prev.map((row) =>
+                              row.id === surveyId
+                                ? { ...row, sections: row.sections.filter((k) => k !== sectionKey) }
+                                : row,
+                            ),
+                          )
+                        }}
                       />
                     )}
                   </React.Fragment>
@@ -1656,7 +2056,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border)] bg-[var(--muted)]/10">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--muted-foreground)]">Rows per page</span>
+            <span className="text-xs text-[var(--muted-foreground)]">{t("actions.rowsPerPage")}</span>
             <select
               value={pageSize}
               onChange={e => handlePageSize(Number(e.target.value))}
@@ -1667,14 +2067,16 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-[var(--muted-foreground)]">
-              {total === 0 ? "0 surveys" : `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`}
+              {total === 0
+                ? t("actions.zeroSurveys")
+                : t("actions.rowsRange", { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, total), total })}
             </span>
             <div className="flex items-center gap-1">
               {([
-                { icon: ChevronsLeft,     action: () => handlePage(1),          disabled: page <= 1 },
-                { icon: ChevronLeft,      action: () => handlePage(page - 1),   disabled: page <= 1 },
-                { icon: ChevronRightIcon, action: () => handlePage(page + 1),   disabled: page >= totalPages },
-                { icon: ChevronsRight,    action: () => handlePage(totalPages), disabled: page >= totalPages },
+                { icon: ChevronsLeft, action: () => handlePage(1), disabled: page <= 1 },
+                { icon: ChevronLeft, action: () => handlePage(page - 1), disabled: page <= 1 },
+                { icon: ChevronRightIcon, action: () => handlePage(page + 1), disabled: page >= totalPages },
+                { icon: ChevronsRight, action: () => handlePage(totalPages), disabled: page >= totalPages },
               ] as const).map(({ icon: Icon, action, disabled }, idx) => (
                 <button
                   key={idx}
@@ -1730,9 +2132,9 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
         open={!!fileUploadSurvey}
         onClose={() => setFileUploadSurvey(null)}
         uploadUrl={fileUploadSurvey ? `/api/site-surveys/${fileUploadSurvey.id}/files` : ""}
-        title="Upload Survey Files"
+        title={t("filesTab.uploadTitle")}
         subtitle={fileUploadSurvey?.customer.name ?? undefined}
-        sections={SURVEY_SECTION_OPTIONS}
+        sections={SURVEY_SECTION_KEYS.map(k => ({ value: k, label: sectionLabel(k) })) as SectionOption[]}
         onUploaded={() => {
           if (fileUploadSurvey) {
             setFilesRefreshKeys(prev => ({ ...prev, [fileUploadSurvey.id]: (prev[fileUploadSurvey.id] ?? 0) + 1 }))

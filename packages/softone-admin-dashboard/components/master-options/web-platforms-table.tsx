@@ -14,7 +14,7 @@ import {
   createWebPlatform, updateWebPlatform,
   deleteWebPlatform, deleteWebPlatforms,
   type WebPlatformRow,
-} from "@/app/(dashboard)/master-options/web-platforms/actions"
+} from "@/app/[locale]/(dashboard)/master-options/web-platforms/actions"
 import type { WebCategory } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────

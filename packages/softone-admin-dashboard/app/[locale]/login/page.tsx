@@ -1,10 +1,15 @@
-import { signIn } from "@/lib/auth"
+import { signIn, microsoftAuthEnabled } from "@/lib/auth"
 import { CredentialsSignin } from "next-auth"
 import { redirect } from "next/navigation"
 import { Map, ClipboardList, ShieldCheck, CheckCircle2 } from "lucide-react"
 import { LoginForm } from "@/components/auth/login-form"
 
 export const metadata = { title: "Sign in — Site Survey Platform" }
+
+async function microsoftSignInAction() {
+  "use server"
+  await signIn("microsoft-entra-id", { redirectTo: "/dashboard" })
+}
 
 function isNextRedirect(e: unknown): boolean {
   return (
@@ -43,6 +48,8 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams
   const showInvalid = error === "invalid"
+  const showNotImported = error === "NotImported"
+  const showNoEmail = error === "NoEmail"
 
   return (
     <div
@@ -247,7 +254,50 @@ export default async function LoginPage({
               </p>
             </div>
 
+            {(showNotImported || showNoEmail) && (
+              <div
+                className="flex items-start gap-2.5 px-4 py-3 rounded-xl mb-5"
+                style={{ background: "#fef3c7", border: "1px solid #fde68a" }}
+              >
+                <div className="text-[12px]" style={{ color: "#78350f" }}>
+                  <p className="font-semibold">
+                    {showNotImported ? "Δεν έχετε πρόσβαση" : "Λείπει το email"}
+                  </p>
+                  <p className="mt-0.5">
+                    {showNotImported
+                      ? "Ο λογαριασμός σας Microsoft δεν έχει εισαχθεί. Επικοινωνήστε με τον διαχειριστή."
+                      : "Ο λογαριασμός Microsoft δεν επέστρεψε διεύθυνση email."}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <LoginForm action={loginAction} showError={showInvalid} />
+
+            {microsoftAuthEnabled && (
+              <>
+                <div className="flex items-center gap-3 my-5">
+                  <div className="flex-1 h-px" style={{ background: "#e5e7eb" }} />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "#9ca3af" }}>ή</span>
+                  <div className="flex-1 h-px" style={{ background: "#e5e7eb" }} />
+                </div>
+                <form action={microsoftSignInAction}>
+                  <button
+                    type="submit"
+                    className="w-full rounded-xl py-3 text-[14px] font-semibold transition-all hover:bg-gray-50 active:scale-[0.99] flex items-center justify-center gap-2.5"
+                    style={{ background: "#fff", border: "1px solid #d1d5db", color: "#374151" }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden>
+                      <path fill="#f25022" d="M1 1h10v10H1z" />
+                      <path fill="#7fba00" d="M12 1h10v10H12z" />
+                      <path fill="#00a4ef" d="M1 12h10v10H1z" />
+                      <path fill="#ffb900" d="M12 12h10v10H12z" />
+                    </svg>
+                    Σύνδεση με Microsoft 365
+                  </button>
+                </form>
+              </>
+            )}
 
             <p className="text-center text-[12px] mt-8" style={{ color: "#9ca3af" }}>
               Need access?{" "}

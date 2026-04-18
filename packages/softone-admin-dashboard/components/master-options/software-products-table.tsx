@@ -14,7 +14,7 @@ import {
   createSoftwareProduct, updateSoftwareProduct,
   deleteSoftwareProduct, deleteSoftwareProducts,
   type SoftwareProductRow,
-} from "@/app/(dashboard)/master-options/software-products/actions"
+} from "@/app/[locale]/(dashboard)/master-options/software-products/actions"
 import type { SoftwareType } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────

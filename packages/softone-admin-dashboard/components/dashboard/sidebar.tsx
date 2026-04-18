@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import {
   LayoutDashboard,
   ListChecks,
@@ -42,8 +43,10 @@ import {
   Cpu,
   Wifi,
   ScrollText,
+  Languages,
 } from "lucide-react"
 import { LicenseModal, type LicenseData } from "./license-modal"
+import { LanguageSwitcher } from "@/components/shared/language-switcher"
 
 const MENU_ICON_MAP: Record<string, React.ElementType> = {
   Database, Table2, Users, Package, FileText,
@@ -69,72 +72,81 @@ export interface AuthUser {
 
 // ─── Nav structure ─────────────────────────────────────────────────────────────
 
-const NAV_GROUPS = [
-  {
-    key: "platform",
-    label: "Platform",
-    items: [
-      { href: "/dashboard",   label: "Overview",    icon: LayoutDashboard },
-      { href: "/connections", label: "Connections", icon: Plug },
-      { href: "/entities",    label: "Entities",    icon: GitMerge },
-      { href: "/mappings",    label: "Mappings",    icon: GitCompareArrows },
-    ],
-  },
-  {
-    key: "orchestration",
-    label: "Orchestration",
-    items: [
-      { href: "/records",    label: "Records",    icon: Inbox },
-      { href: "/jobs",       label: "Jobs",       icon: ListChecks },
-      { href: "/monitoring", label: "Monitoring", icon: BarChart2 },
-    ],
-  },
+type NavItem = { href: string; labelKey: string; icon: React.ElementType }
+type NavGroupDef = { key: string; labelKey: string; items: NavItem[] }
+
+// ─── Order reflects product priority ──
+// 1. Site Survey (the product)
+// 2. Master Options + Tools (support survey workflow — fill-in data + gather external info)
+// 3. Platform/Orchestration (Softone ERP integration — admin)
+// 4. Users management (admin)
+const NAV_GROUPS: NavGroupDef[] = [
   {
     key: "site-survey",
-    label: "Site Survey",
+    labelKey: "siteSurvey",
     items: [
-      { href: "/site-survey",           label: "All Surveys", icon: ClipboardList },
-      { href: "/customers",             label: "Customers",   icon: ContactRound  },
+      { href: "/dashboard", labelKey: "overview", icon: LayoutDashboard },
+      { href: "/site-survey", labelKey: "allSurveys", icon: ClipboardList },
+      { href: "/customers", labelKey: "customers", icon: ContactRound },
     ],
   },
   {
     key: "master-options",
-    label: "Master Options",
+    labelKey: "masterOptions",
     items: [
-      { href: "/master-options/brands",            label: "Brands",            icon: Tag       },
-      { href: "/master-options/asset-types",       label: "Asset Types",       icon: Server    },
-      { href: "/master-options/software-vendors",  label: "Software Vendors",  icon: AppWindow },
-      { href: "/master-options/software-products", label: "Software Products", icon: Layers    },
-      { href: "/master-options/web-platforms",     label: "Web Platforms",     icon: Globe     },
-      { href: "/master-options/digital-tools",     label: "Digital Tools",     icon: BarChart2 },
-      { href: "/master-options/iot-categories",    label: "IoT Categories",    icon: Cpu         },
-      { href: "/master-options/iot-products",      label: "IoT Products",      icon: Wifi        },
-      { href: "/master-options/survey-questions",  label: "Survey Questions",  icon: ListChecks  },
+      { href: "/master-options/survey-questions", labelKey: "surveyQuestions", icon: ListChecks },
+      { href: "/master-options/brands", labelKey: "brands", icon: Tag },
+      { href: "/master-options/asset-types", labelKey: "assetTypes", icon: Server },
+      { href: "/master-options/software-vendors", labelKey: "softwareVendors", icon: AppWindow },
+      { href: "/master-options/software-products", labelKey: "softwareProducts", icon: Layers },
+      { href: "/master-options/web-platforms", labelKey: "webPlatforms", icon: Globe },
+      { href: "/master-options/digital-tools", labelKey: "digitalTools", icon: BarChart2 },
+      { href: "/master-options/iot-categories", labelKey: "iotCategories", icon: Cpu },
+      { href: "/master-options/iot-products", labelKey: "iotProducts", icon: Wifi },
     ],
   },
   {
     key: "tools",
-    label: "Tools",
+    labelKey: "tools",
     items: [
-      { href: "/vat-lookup", label: "AEEDE VAT Info",  icon: Search },
-      { href: "/media",      label: "Media Library",   icon: Images },
-      { href: "/import",     label: "Excel Import",    icon: FileSpreadsheet },
-      { href: "/xml-feeds",  label: "XML Feeds",       icon: Rss },
-      { href: "/backups",    label: "DB Backups",      icon: HardDriveDownload },
+      { href: "/vat-lookup", labelKey: "vatLookup", icon: Search },
+      { href: "/media", labelKey: "media", icon: Images },
+      { href: "/import", labelKey: "import", icon: FileSpreadsheet },
+      { href: "/xml-feeds", labelKey: "xmlFeeds", icon: Rss },
+      { href: "/backups", labelKey: "backups", icon: HardDriveDownload },
+    ],
+  },
+  {
+    key: "platform",
+    labelKey: "platform",
+    items: [
+      { href: "/connections", labelKey: "connections", icon: Plug },
+      { href: "/entities", labelKey: "entities", icon: GitMerge },
+      { href: "/mappings", labelKey: "mappings", icon: GitCompareArrows },
+    ],
+  },
+  {
+    key: "orchestration",
+    labelKey: "orchestration",
+    items: [
+      { href: "/records", labelKey: "records", icon: Inbox },
+      { href: "/jobs", labelKey: "jobs", icon: ListChecks },
+      { href: "/monitoring", labelKey: "monitoring", icon: BarChart2 },
     ],
   },
   {
     key: "users",
-    label: "Users Management",
+    labelKey: "usersManagement",
     items: [
-      { href: "/users", label: "Users", icon: Users },
-      { href: "/roles", label: "Roles", icon: ShieldCheck },
+      { href: "/users", labelKey: "users", icon: Users },
+      { href: "/roles", labelKey: "roles", icon: ShieldCheck },
     ],
   },
 ]
 
-const SETTINGS_ITEMS = [
-  { href: "/settings", label: "Settings", icon: Settings },
+const SETTINGS_ITEMS: NavItem[] = [
+  { href: "/settings", labelKey: "settings", icon: Settings },
+  { href: "/settings/translations", labelKey: "translations", icon: Languages },
 ]
 
 function navHrefAllowed(href: string, user: AuthUser | null | undefined): boolean {
@@ -147,13 +159,14 @@ function navHrefAllowed(href: string, user: AuthUser | null | undefined): boolea
 // ─── NavLink ──────────────────────────────────────────────────────────────────
 
 function NavLink({
-  href, label, icon: Icon, active, collapsed,
+  href, label, icon: Icon, active, collapsed, locale,
 }: {
-  href: string; label: string; icon: React.ElementType; active: boolean; collapsed: boolean
+  href: string; label: string; icon: React.ElementType; active: boolean; collapsed: boolean; locale: string
 }) {
+  const localizedHref = `/${locale}${href}`
   return (
     <Link
-      href={href}
+      href={localizedHref}
       title={collapsed ? label : undefined}
       className={cn(
         "flex items-center rounded-md text-[13px] font-medium transition-all duration-150",
@@ -208,12 +221,14 @@ function NavGroup({
   pathname,
   collapsed,
   defaultOpen,
+  locale,
 }: {
   label: string
   items: { href: string; label: string; icon: React.ElementType }[]
   pathname: string
   collapsed: boolean
   defaultOpen: boolean
+  locale: string
 }) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -223,7 +238,7 @@ function NavGroup({
       <div className="space-y-0.5">
         {items.map(({ href, label: l, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/")
-          return <NavLink key={href} href={href} label={l} icon={Icon} active={active} collapsed />
+          return <NavLink key={href} href={href} label={l} icon={Icon} active={active} collapsed locale={locale} />
         })}
       </div>
     )
@@ -264,7 +279,7 @@ function NavGroup({
         <div className="space-y-0.5">
           {items.map(({ href, label: l, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/")
-            return <NavLink key={href} href={href} label={l} icon={Icon} active={active} collapsed={false} />
+            return <NavLink key={href} href={href} label={l} icon={Icon} active={active} collapsed={false} locale={locale} />
           })}
         </div>
       </div>
@@ -298,11 +313,18 @@ export function Sidebar({
   licenseData?: LicenseData
 }) {
   const pathname = usePathname()
+  const locale = useLocale()
+  const tGroups = useTranslations("navigation.groups")
+  const tItems = useTranslations("navigation.items")
+  const tActions = useTranslations("navigation.actions")
   const [collapsed, setCollapsed] = useState(false)
   const [licenseOpen, setLicenseOpen] = useState(false)
 
   const filteredEntityItems =
     user && userCanReadResource(user, "records") ? entityMenuItems : []
+
+  // Strip the locale prefix from pathname so it matches NAV_GROUPS hrefs (e.g. "/el/dashboard" → "/dashboard").
+  const pathnameForMatch = pathname.replace(new RegExp(`^/${locale}(?=/|$)`), "") || "/"
 
   return (
     <aside
@@ -354,7 +376,7 @@ export function Sidebar({
           }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-icon)")}
-          title="Collapse sidebar"
+          title={tActions("collapseSidebar")}
         >
           <PanelLeftClose className="size-3.5" />
         </button>
@@ -378,7 +400,7 @@ export function Sidebar({
           style={{ color: "var(--sidebar-icon)" }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
           onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-icon)")}
-          title="Expand sidebar"
+          title={tActions("expandSidebar")}
         >
           <PanelLeft className="size-3.5" />
         </button>
@@ -388,19 +410,22 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto overflow-x-hidden" style={{ padding: collapsed ? "12px 8px" : "12px" }}>
         <div className="space-y-1">
           {NAV_GROUPS.map((group) => {
-            const items = group.items.filter((item) => navHrefAllowed(item.href, user))
+            const items = group.items
+              .filter((item) => navHrefAllowed(item.href, user))
+              .map((item) => ({ href: item.href, label: tItems(item.labelKey), icon: item.icon }))
             if (items.length === 0) return null
             const hasActive = items.some(
-              (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+              (item) => pathnameForMatch === item.href || pathnameForMatch.startsWith(item.href + "/")
             )
             return (
               <NavGroup
                 key={group.key}
-                label={group.label}
+                label={tGroups(group.labelKey)}
                 items={items}
-                pathname={pathname}
+                pathname={pathnameForMatch}
                 collapsed={collapsed}
                 defaultOpen={hasActive}
+                locale={locale}
               />
             )
           })}
@@ -408,17 +433,18 @@ export function Sidebar({
           {filteredEntityItems.length > 0 && (
             <NavGroup
               key="entities-data"
-              label="Live Records"
+              label={tGroups("liveRecords")}
               items={filteredEntityItems.map((item) => ({
                 href: `/records/${item.id}`,
                 label: item.label,
                 icon: MENU_ICON_MAP[item.icon] ?? Database,
               }))}
-              pathname={pathname}
+              pathname={pathnameForMatch}
               collapsed={collapsed}
               defaultOpen={filteredEntityItems.some(
-                (item) => pathname === `/records/${item.id}` || pathname.startsWith(`/records/${item.id}/`)
+                (item) => pathnameForMatch === `/records/${item.id}` || pathnameForMatch.startsWith(`/records/${item.id}/`)
               )}
+              locale={locale}
             />
           )}
         </div>
@@ -438,20 +464,20 @@ export function Sidebar({
             className="text-[10px] font-semibold uppercase tracking-widest mb-1.5 px-2"
             style={{ color: "var(--sidebar-icon)" }}
           >
-            Settings
+            {tGroups("settings")}
           </p>
         )}
         <div className="space-y-0.5">
-          {SETTINGS_ITEMS.filter((item) => navHrefAllowed(item.href, user)).map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + "/")
-            return <NavLink key={href} href={href} label={label} icon={Icon} active={active} collapsed={collapsed} />
+          {SETTINGS_ITEMS.filter((item) => navHrefAllowed(item.href, user)).map(({ href, labelKey, icon: Icon }) => {
+            const active = pathnameForMatch === href || pathnameForMatch.startsWith(href + "/")
+            return <NavLink key={href} href={href} label={tItems(labelKey)} icon={Icon} active={active} collapsed={collapsed} locale={locale} />
           })}
 
           {/* License button */}
           {licenseData && (
             <button
               onClick={() => setLicenseOpen(true)}
-              title={collapsed ? "License" : undefined}
+              title={collapsed ? tActions("license") : undefined}
               className={cn(
                 "w-full flex items-center rounded-md text-[13px] font-medium transition-all duration-150",
                 collapsed ? "justify-center p-2.5" : "gap-2.5 px-2.5 py-[7px]",
@@ -481,7 +507,7 @@ export function Sidebar({
                   letterSpacing: "-0.01em",
                 }}
               >
-                License
+                {tActions("license")}
               </span>
             </button>
           )}
@@ -537,19 +563,22 @@ export function Sidebar({
               </p>
             </div>
 
-            <button
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              title="Sign out"
-              className="p-1 rounded flex-shrink-0"
-              style={{
-                color: "var(--sidebar-icon)",
-                display: collapsed ? "none" : "flex",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-icon)")}
+            <div
+              className="flex items-center gap-1 flex-shrink-0"
+              style={{ display: collapsed ? "none" : "flex" }}
             >
-              <LogOut className="size-3.5" />
-            </button>
+              <LanguageSwitcher variant="sidebar" />
+              <button
+                onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
+                title={tActions("signOut")}
+                className="p-1 rounded transition-colors"
+                style={{ color: "var(--sidebar-icon)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--sidebar-icon)")}
+              >
+                <LogOut className="size-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}

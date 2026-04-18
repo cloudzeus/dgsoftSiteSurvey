@@ -1,17 +1,24 @@
 import { db } from "@/lib/db"
-import { auth } from "@/lib/auth"
+import { auth, microsoftAuthEnabled } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { UsersTable } from "@/components/users/users-table"
+import { UsersHeader } from "@/components/users/users-header"
 
 export const metadata = { title: "Users" }
 
-export default async function UsersPage() {
+interface UsersPageProps {
+  params: Promise<{ locale: string }>
+}
+
+export default async function UsersPage({ params }: UsersPageProps) {
+  const { locale } = await params
+
   const session = await auth()
-  if (!session) redirect("/login")
+  if (!session) redirect(`/${locale}/login`)
 
   const currentUser = session.user as { id?: string; role?: string; email?: string }
   if (currentUser.role !== "ADMIN") {
-    redirect("/dashboard")
+    redirect(`/${locale}/dashboard`)
   }
 
   const users = await db.user.findMany({
@@ -27,17 +34,7 @@ export default async function UsersPage() {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "var(--foreground)" }}>
-            Users
-          </h1>
-          <p className="text-[12px] mt-0.5" style={{ color: "var(--foreground-muted)" }}>
-            {users.length} user{users.length !== 1 ? "s" : ""} · manage accounts and roles
-          </p>
-        </div>
-      </div>
-
+      <UsersHeader count={users.length} microsoftEnabled={microsoftAuthEnabled} />
       <UsersTable users={users} currentUserId={currentUser.id ?? ""} />
     </div>
   )

@@ -13,7 +13,7 @@ import { useTablePrefs, PAGE_SIZES, type ColDef, type PageSize } from "@/hooks/u
 import {
   createBrand, updateBrand, deleteBrand, deleteBrands,
   type BrandRow,
-} from "@/app/(dashboard)/master-options/brands/actions"
+} from "@/app/[locale]/(dashboard)/master-options/brands/actions"
 import type { MasterCategory } from "@prisma/client"
 
 // ─── Constants ────────────────────────────────────────────────────────────────

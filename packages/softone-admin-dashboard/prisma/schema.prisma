@@ -792,6 +792,21 @@ model Customer {
   registrationDate  DateTime?
   numberOfEmployees Int?
   gemiCode          String?   @db.VarChar(50)
+
+  // ─── GEMI-sourced fields (do not duplicate AADE: email, webpage, address, kads, registrationDate) ──
+  nameEn          String?   @db.VarChar(200)   // coNamesEn[0]
+  titleEn         String?   @db.VarChar(200)   // coTitlesEn[0]
+  legalForm       String?   @db.VarChar(150)   // legalType.descr
+  gemiStatus      String?   @db.VarChar(100)   // status.descr
+  gemiStatusDate  DateTime?                    // lastStatusChange
+  gemiOffice      String?   @db.VarChar(150)   // gemiOffice.descr
+  prefecture      String?   @db.VarChar(100)   // prefecture.descr
+  municipality    String?   @db.VarChar(100)   // municipality.descr
+  objective       String?   @db.Text           // objective
+  isBranch        Boolean?  @default(false)    // isBranch
+  gemiSnapshot    Json?                        // full raw GEMI company JSON
+  gemiSyncedAt    DateTime?                    // when GEMI sync last happened
+
   insdate           DateTime?
   upddate           DateTime?
 
@@ -800,6 +815,9 @@ model Customer {
   branches    TrdBranch[]
   files       File[]
   siteSurveys SiteSurvey[]
+  capitals    CustomerCapital[]
+  persons     CustomerPerson[]
+  documents   CustomerDocument[]
 
   @@index([trdr])
   @@index([code])
@@ -859,6 +877,69 @@ model TrdBranch {
 
   @@index([customerId])
   @@index([trdbranch])
+}
+
+// ─── Customer Capital (from GEMI) ────────────────────────────────────────────
+// One row per (currency, capitalStock) entry returned by GEMI.
+
+model CustomerCapital {
+  id            Int      @id @default(autoincrement())
+  customerId    Int
+  capitalStock  Decimal  @db.Decimal(18, 2)
+  currency      String   @db.VarChar(10)
+  ecsokefalaiikes Decimal? @db.Decimal(18, 2)
+  eggiitikes      Decimal? @db.Decimal(18, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// ─── Customer Persons (from GEMI) ────────────────────────────────────────────
+// GEMI person schema is loosely typed; raw payload stored as JSON.
+
+model CustomerPerson {
+  id          Int      @id @default(autoincrement())
+  customerId  Int
+  fullName    String?  @db.VarChar(255)
+  role        String?  @db.VarChar(150)
+  afm         String?  @db.VarChar(20)
+  startDate   DateTime?
+  endDate     DateTime?
+  raw         Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// ─── Customer Documents (from GEMI) ──────────────────────────────────────────
+// Unified table for both decision (assembly announcement) and publication (ΥΜΣ) docs.
+
+model CustomerDocument {
+  id            Int      @id @default(autoincrement())
+  customerId    Int
+  kind          String   @db.VarChar(20)    // "DECISION" | "PUBLICATION"
+  code          String?  @db.VarChar(50)    // ΚΑΚ (decisions) | ΚΑΔ (publications)
+  subject       String?  @db.VarChar(500)   // decisionSubject / assembly
+  summary       String?  @db.Text
+  decisionDate  DateTime?
+  announcedDate DateTime?
+  registratedDate DateTime?
+  status        String?  @db.VarChar(150)
+  downloadUrl   String?  @db.VarChar(500)
+  raw           Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([customerId, kind])
 }
 
 // ─── Customer Contacts ────────────────────────────────────────────────────────

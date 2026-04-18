@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState, useTransition } from "react"
+import { useTranslations } from "next-intl"
 import * as Dialog from "@radix-ui/react-dialog"
 import {
   X, Loader2, Save, CheckSquare, Square, Check,
@@ -89,15 +90,19 @@ function NumberAnswer({ value, onChange }: { value: string; onChange: (v: string
 }
 
 function BooleanAnswer({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations("surveyWizard")
   return (
     <div className="flex gap-2 flex-wrap">
-      {(["Yes", "No"] as const).map(opt => {
-        const active = opt === "Yes" ? value === "true" : value === "false"
+      {([
+        { key: "yes" as const, value: "true" },
+        { key: "no" as const, value: "false" },
+      ]).map(opt => {
+        const active = value === opt.value
         return (
           <button
-            key={opt}
+            key={opt.key}
             type="button"
-            onClick={() => onChange(opt === "Yes" ? "true" : "false")}
+            onClick={() => onChange(opt.value)}
             className={cn(
               "px-5 py-1.5 rounded-lg border text-[12px] font-semibold transition-all",
               active
@@ -105,7 +110,7 @@ function BooleanAnswer({ value, onChange }: { value: string; onChange: (v: strin
                 : "border-[var(--border)] hover:bg-[var(--muted)] text-[var(--muted-foreground)]",
             )}
           >
-            {opt}
+            {t(`boolean.${opt.key}`)}
           </button>
         )
       })}
@@ -115,7 +120,7 @@ function BooleanAnswer({ value, onChange }: { value: string; onChange: (v: strin
           onClick={() => onChange("")}
           className="px-3 py-1.5 rounded-lg border border-dashed border-[var(--border)] text-[11px] text-[var(--muted-foreground)] hover:bg-[var(--muted)] transition-colors"
         >
-          Clear
+          {t("boolean.clear")}
         </button>
       )}
     </div>
@@ -129,6 +134,7 @@ function DropdownAnswer({
   options: { id: number | string; label: string }[]
   onChange: (v: string) => void
 }) {
+  const t = useTranslations("surveyWizard")
   return (
     <select
       value={value}
@@ -136,7 +142,7 @@ function DropdownAnswer({
       className="rounded-lg border border-[var(--input)] bg-[var(--background)] px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] min-w-52 transition-colors"
       style={{ color: value ? "var(--foreground)" : "var(--muted-foreground)" }}
     >
-      <option value="">— Select —</option>
+      <option value="">{t("dropdown.placeholder")}</option>
       {options.map(o => (
         <option key={String(o.id)} value={String(o.id)}>{o.label}</option>
       ))}
@@ -179,7 +185,7 @@ function MultiSelectAnswer({
             className={cn(
               "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-all",
               isOn
-                ? "bg-indigo-500/15 border-indigo-500/40 text-indigo-400 shadow-sm"
+                ? "bg-indigo-950/70 border-indigo-700/60 text-indigo-300 shadow-sm"
                 : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]",
             )}
           >
@@ -195,6 +201,7 @@ function MultiSelectAnswer({
 // ─── Brand combobox ───────────────────────────────────────────────────────────
 
 function BrandCombobox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useTranslations("surveyWizard")
   const [query,    setQuery]    = useState(value)
   const [results,  setResults]  = useState<{ id: number; name: string }[]>([])
   const [open,     setOpen]     = useState(false)
@@ -255,13 +262,13 @@ function BrandCombobox({ value, onChange }: { value: string; onChange: (v: strin
   return (
     <div ref={containerRef} className="flex-1 min-w-[130px] relative">
       <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>
-        Brand
+        {t("device.brand")}
       </label>
       <input
         value={query}
         onFocus={handleFocus}
         onChange={e => handleInput(e.target.value)}
-        placeholder="e.g. Fortinet"
+        placeholder={t("device.brandPlaceholder")}
         className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors"
         style={{ color: "var(--foreground)" }}
       />
@@ -270,7 +277,7 @@ function BrandCombobox({ value, onChange }: { value: string; onChange: (v: strin
           style={{ background: "var(--card)", maxHeight: 180 }}>
           {loading && (
             <div className="flex items-center gap-2 px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-              <Loader2 className="size-3 animate-spin" /> Searching…
+              <Loader2 className="size-3 animate-spin" /> {t("device.searching")}
             </div>
           )}
           {!loading && results.map(r => (
@@ -281,14 +288,14 @@ function BrandCombobox({ value, onChange }: { value: string; onChange: (v: strin
             </button>
           ))}
           {!loading && results.length === 0 && !showAdd && (
-            <p className="px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>No brands found</p>
+            <p className="px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>{t("device.noBrands")}</p>
           )}
           {showAdd && (
             <button type="button" onClick={() => handleCreate(trimmed)} disabled={creating}
               className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-1.5 hover:bg-indigo-500/10 transition-colors"
               style={{ color: "var(--primary)", borderTop: "1px solid var(--border)" }}>
               {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
-              Add &ldquo;{trimmed}&rdquo; as new brand
+              {t("device.addBrand", { name: trimmed })}
             </button>
           )}
         </div>
@@ -304,6 +311,7 @@ function ModelCombobox({
 }: {
   brandName: string; value: string; onChange: (v: string) => void
 }) {
+  const t = useTranslations("surveyWizard")
   const [query,    setQuery]    = useState(value)
   const [results,  setResults]  = useState<{ id: number; modelName: string; category?: string | null }[]>([])
   const [open,     setOpen]     = useState(false)
@@ -366,13 +374,13 @@ function ModelCombobox({
   return (
     <div ref={containerRef} className="flex-1 min-w-[130px] relative">
       <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "var(--muted-foreground)" }}>
-        Model
+        {t("device.model")}
       </label>
       <input
         value={query}
         onFocus={handleFocus}
         onChange={e => handleInput(e.target.value)}
-        placeholder={brandName ? "e.g. FortiGate 100F" : "Select a brand first"}
+        placeholder={brandName ? t("device.modelPlaceholder") : t("device.modelDisabledPlaceholder")}
         disabled={!brandName}
         className="w-full rounded-lg border border-[var(--input)] bg-[var(--background)] px-2.5 py-1.5 text-[12px] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ color: "var(--foreground)" }}
@@ -382,7 +390,7 @@ function ModelCombobox({
           style={{ background: "var(--card)", maxHeight: 180 }}>
           {loading && (
             <div className="flex items-center gap-2 px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-              <Loader2 className="size-3 animate-spin" /> Searching…
+              <Loader2 className="size-3 animate-spin" /> {t("device.searching")}
             </div>
           )}
           {!loading && results.map(r => (
@@ -397,7 +405,7 @@ function ModelCombobox({
           ))}
           {!loading && results.length === 0 && !showAdd && (
             <p className="px-3 py-2 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
-              No models for {brandName} yet
+              {t("device.noModelsForBrand", { brand: brandName })}
             </p>
           )}
           {showAdd && (
@@ -405,7 +413,7 @@ function ModelCombobox({
               className="w-full text-left px-3 py-2 text-[12px] flex items-center gap-1.5 hover:bg-indigo-500/10 transition-colors"
               style={{ color: "var(--primary)", borderTop: results.length ? "1px solid var(--border)" : "none" }}>
               {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
-              Add &ldquo;{trimmed}&rdquo; to {brandName}
+              {t("device.addModel", { name: trimmed, brand: brandName })}
             </button>
           )}
         </div>
@@ -427,6 +435,7 @@ function DeviceForm({
   onSave: (d: DeviceEntry) => void
   onCancel: () => void
 }) {
+  const t = useTranslations("surveyWizard")
   const [d, setD] = useState<DeviceEntry>(initial)
 
   function field(label: string, key: keyof DeviceEntry, placeholder?: string, mono = false) {
@@ -461,9 +470,9 @@ function DeviceForm({
           value={d.model}
           onChange={v => setD(prev => ({ ...prev, model: v }))}
         />
-        {field("Serial #", "serial",   "e.g. FG100F1234",     true)}
-        {field("Location", "location", "e.g. Server Room A")}
-        {hasIp && field("IP Address", "ip", "e.g. 192.168.1.1", true)}
+        {field(t("device.serial"), "serial",   t("device.serialPlaceholder"),     true)}
+        {field(t("device.location"), "location", t("device.locationPlaceholder"))}
+        {hasIp && field(t("device.ip"), "ip", t("device.ipPlaceholder"), true)}
       </div>
       <div className="flex gap-2 justify-end">
         <button
@@ -472,14 +481,14 @@ function DeviceForm({
           className="px-3 py-1.5 rounded-lg border border-[var(--border)] text-[11px] font-semibold hover:bg-[var(--muted)] transition-colors"
           style={{ color: "var(--muted-foreground)" }}
         >
-          Cancel
+          {t("device.cancel")}
         </button>
         <button
           type="button"
           onClick={() => onSave(d)}
           className="px-4 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-semibold transition-colors"
         >
-          Save device
+          {t("device.saveDevice")}
         </button>
       </div>
     </div>
@@ -497,6 +506,7 @@ function DeviceListAnswer({
   config: DeviceConfig
   onChange: (v: string) => void
 }) {
+  const t = useTranslations("surveyWizard")
   const hasIp   = config.hasIp ?? false
   const devices = parseDevices(value)
 
@@ -539,20 +549,20 @@ function DeviceListAnswer({
           ) : (
             <div className="flex items-start gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/10 px-3.5 py-2.5 group hover:border-indigo-500/20 hover:bg-indigo-500/[2%] transition-colors">
               {/* Index badge */}
-              <span className="size-5 rounded-full bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
+              <span className="size-5 rounded-full bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
                 {idx + 1}
               </span>
 
               {/* Device info */}
               <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-4 gap-y-0.5 sm:grid-cols-4">
-                <DeviceField icon={<Cpu className="size-3" />}  label="Brand / Model"
+                <DeviceField icon={<Cpu className="size-3" />}  label={t("device.brand") + " / " + t("device.model")}
                   value={[d.brand, d.model].filter(Boolean).join(" — ") || "—"} />
-                <DeviceField icon={<Hash className="size-3" />} label="Serial"
+                <DeviceField icon={<Hash className="size-3" />} label={t("device.serial")}
                   value={d.serial || "—"} mono />
-                <DeviceField icon={<MapPin className="size-3" />} label="Location"
+                <DeviceField icon={<MapPin className="size-3" />} label={t("device.location")}
                   value={d.location || "—"} />
                 {hasIp && (
-                  <DeviceField icon={<Wifi className="size-3" />} label="IP"
+                  <DeviceField icon={<Wifi className="size-3" />} label={t("device.ip")}
                     value={d.ip || "—"} mono />
                 )}
               </div>
@@ -600,7 +610,7 @@ function DeviceListAnswer({
           style={{ color: "var(--muted-foreground)" }}
         >
           <Plus className="size-3" />
-          Add device
+          {t("device.addDevice")}
         </button>
       )}
     </div>
@@ -635,6 +645,7 @@ function DeviceField({
 export function SurveyQuestionsWizard({
   open, onClose, surveyId, surveyName, sectionKey, sectionLabel, customerCompletedBy,
 }: Props) {
+  const t = useTranslations("surveyWizard")
   const [questions,  setQuestions]  = useState<Question[]>([])
   const [answers,    setAnswers]    = useState<Record<string, string>>({})
   const [loading,    setLoading]    = useState(false)
@@ -712,7 +723,7 @@ export function SurveyQuestionsWizard({
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))
-          setSaveError(err.error ?? `Save failed (${res.status})`)
+          setSaveError(err.error ?? t("saveFailed", { status: res.status }))
           return
         }
         setSaveError(null)
@@ -759,10 +770,10 @@ export function SurveyQuestionsWizard({
             <div className="shrink-0 mx-6 mt-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/8 px-4 py-3">
               <AlertTriangle className="size-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[12px] font-semibold text-amber-400">Customer already submitted this section</p>
+                <p className="text-[12px] font-semibold text-amber-400">{t("customerSubmittedTitle")}</p>
                 <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                  <span className="font-medium" style={{ color: "var(--foreground)" }}>{customerCompletedBy}</span> filled
-                  in this questionnaire. Any changes you save here will overwrite their answers and be recorded in the history.
+                  <span className="font-medium" style={{ color: "var(--foreground)" }}>{customerCompletedBy}</span>{" "}
+                  {t("customerSubmittedBody")}
                 </p>
               </div>
             </div>
@@ -773,13 +784,13 @@ export function SurveyQuestionsWizard({
             <div className="shrink-0 px-6 py-3 border-b border-[var(--border)]" style={{ background: "var(--muted)/30" }}>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>
-                  Progress
+                  {t("progress")}
                 </span>
                 <span
                   className="text-[11px] font-bold tabular-nums transition-colors"
                   style={{ color: allDone ? "rgb(52 211 153)" : "var(--foreground)" }}
                 >
-                  {answeredCount} / {questions.length} answered
+                  {t("answered", { answered: answeredCount, total: questions.length })}
                 </span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
@@ -801,21 +812,21 @@ export function SurveyQuestionsWizard({
             {loading && (
               <div className="flex items-center justify-center py-16 gap-2" style={{ color: "var(--muted-foreground)" }}>
                 <Loader2 className="size-5 animate-spin" />
-                <span className="text-[13px]">Loading questions…</span>
+                <span className="text-[13px]">{t("loading")}</span>
               </div>
             )}
 
             {!loading && saveError && (
               <div className="rounded-xl border border-rose-500/30 bg-rose-500/8 px-4 py-3">
-                <p className="text-[12px] font-semibold text-rose-400 mb-0.5">Failed to load questions</p>
+                <p className="text-[12px] font-semibold text-rose-400 mb-0.5">{t("loadError")}</p>
                 <p className="text-[11px] font-mono" style={{ color: "var(--muted-foreground)" }}>{saveError}</p>
               </div>
             )}
 
             {!loading && !saveError && questions.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-2" style={{ color: "var(--muted-foreground)" }}>
-                <p className="text-[13px]">No questions defined for this section yet.</p>
-                <p className="text-[11px]">Add questions in Master Options → Survey Questions.</p>
+                <p className="text-[13px]">{t("noQuestions")}</p>
+                <p className="text-[11px]">{t("noQuestionsHint")}</p>
               </div>
             )}
 
@@ -841,8 +852,8 @@ export function SurveyQuestionsWizard({
                       className={cn(
                         "shrink-0 size-5 rounded-full flex items-center justify-center mt-0.5 transition-all",
                         isAnswered
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : "bg-indigo-500/10 text-indigo-400",
+                          ? "bg-emerald-950/70 text-emerald-300"
+                          : "bg-indigo-950/70 text-indigo-300",
                       )}
                     >
                       {isAnswered
@@ -858,7 +869,9 @@ export function SurveyQuestionsWizard({
                         const count = parseDevices(val).length
                         return count > 0 ? (
                           <p className="text-[11px] mt-0.5 text-emerald-400 font-medium">
-                            {count} device{count !== 1 ? "s" : ""} recorded
+                            {count === 1
+                              ? t("devicesRecordedSingular", { count })
+                              : t("devicesRecorded", { count })}
                           </p>
                         ) : null
                       })()}
@@ -910,14 +923,14 @@ export function SurveyQuestionsWizard({
                 <p className="text-[11px] text-rose-400 font-semibold truncate">{saveError}</p>
               ) : saved && !isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-[12px] text-emerald-400 font-semibold">
-                  <Check className="size-3.5" strokeWidth={3} /> Saved successfully
+                  <Check className="size-3.5" strokeWidth={3} /> {t("savedSuccessfully")}
                 </span>
               ) : (
                 <span />
               )}
               <Btn size="sm" onClick={handleSave} disabled={isPending}>
                 {isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-                Save answers
+                {t("saveAnswers")}
               </Btn>
             </div>
           )}
