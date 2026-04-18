@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
   experimental: {
     // Enable server actions (stable in Next 16)
   },
+  // Include translation JSON + Prisma engines in the standalone server output
+  // so they exist at runtime in the deployed Docker image.
+  outputFileTracingIncludes: {
+    "/**/*": [
+      "./messages/**/*",
+      "./prisma/schema.prisma",
+    ],
+  },
   images: {
     remotePatterns: [
       {
