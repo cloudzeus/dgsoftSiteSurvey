@@ -26,17 +26,24 @@ interface TokenCache {
 let tokenCache: TokenCache | null = null
 
 function readTenantConfig(): { tenantId: string; clientId: string; clientSecret: string } {
-  // Accept both new and existing env var names. CLIENT_SECRET_ID is the legacy
-  // (likely misnamed) variable the user already has — Microsoft calls this the
-  // "Application (client) ID". We try the explicit name first.
+  // Accept multiple env var names. APPLICATION_ID is the existing variable in
+  // this project for the Azure Application (client) ID. Note: CLIENT_SECRET_ID
+  // is the secret's internal reference, NOT the application id — kept last.
   const tenantId = process.env.MICROSOFT_TENANT_ID || process.env.AZURE_AD_TENANT_ID || process.env.TENANT_ID
-  const clientId = process.env.MICROSOFT_CLIENT_ID || process.env.AZURE_AD_CLIENT_ID || process.env.CLIENT_SECRET_ID
-  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET || process.env.AZURE_AD_CLIENT_SECRET || process.env.CLIENT_SECRET_VALUE
+  const clientId =
+    process.env.MICROSOFT_CLIENT_ID ||
+    process.env.AZURE_AD_CLIENT_ID ||
+    process.env.APPLICATION_ID ||
+    process.env.CLIENT_SECRET_ID
+  const clientSecret =
+    process.env.MICROSOFT_CLIENT_SECRET ||
+    process.env.AZURE_AD_CLIENT_SECRET ||
+    process.env.CLIENT_SECRET_VALUE
 
   if (!tenantId || !clientId || !clientSecret) {
     const missing = [
       !tenantId && "MICROSOFT_TENANT_ID (or TENANT_ID)",
-      !clientId && "MICROSOFT_CLIENT_ID (or CLIENT_SECRET_ID)",
+      !clientId && "MICROSOFT_CLIENT_ID (or APPLICATION_ID)",
       !clientSecret && "MICROSOFT_CLIENT_SECRET (or CLIENT_SECRET_VALUE)",
     ].filter(Boolean).join(", ")
     throw new Error(`Microsoft Graph config missing: ${missing}`)

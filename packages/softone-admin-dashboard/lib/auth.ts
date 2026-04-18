@@ -13,8 +13,15 @@ import { authConfig } from "@/lib/auth.config"
 import { getReadableResourceKeysForRole } from "@/lib/rbac-policy"
 
 const MS_TENANT  = process.env.MICROSOFT_TENANT_ID  || process.env.AZURE_AD_TENANT_ID  || process.env.TENANT_ID
-const MS_CLIENT  = process.env.MICROSOFT_CLIENT_ID  || process.env.AZURE_AD_CLIENT_ID  || process.env.CLIENT_SECRET_ID
-const MS_SECRET  = process.env.MICROSOFT_CLIENT_SECRET || process.env.AZURE_AD_CLIENT_SECRET || process.env.CLIENT_SECRET_VALUE
+const MS_CLIENT  =
+  process.env.MICROSOFT_CLIENT_ID ||
+  process.env.AZURE_AD_CLIENT_ID ||
+  process.env.APPLICATION_ID ||
+  process.env.CLIENT_SECRET_ID
+const MS_SECRET  =
+  process.env.MICROSOFT_CLIENT_SECRET ||
+  process.env.AZURE_AD_CLIENT_SECRET ||
+  process.env.CLIENT_SECRET_VALUE
 const MS_ENABLED = Boolean(MS_TENANT && MS_CLIENT && MS_SECRET)
 
 export const microsoftAuthEnabled = MS_ENABLED
