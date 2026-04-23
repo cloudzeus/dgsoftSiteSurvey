@@ -7,7 +7,7 @@ import {
   Cpu, ClipboardList, Globe, ShieldCheck, Bot,
   Bold, Italic, Underline, List, ListOrdered, Plus,
   FileText, CheckCircle2, Clock, Send, XCircle,
-  ChevronDown, Check, Sparkles, Download,
+  ChevronDown, Check, Sparkles, Download, Code2, ExternalLink,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { SurveyUser } from "./site-survey-dialog"
@@ -302,6 +302,8 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
   const [saving,           setSaving]           = useState(false)
   const [deleting,         setDeleting]         = useState(false)
   const [exporting,        setExporting]        = useState(false)
+  const [cursorExporting,  setCursorExporting]  = useState(false)
+  const [cursorFiles,      setCursorFiles]      = useState<Array<{ name: string; url: string; description: string }> | null>(null)
   const [error,            setError]            = useState<string | null>(null)
   const [generatingDesc,   setGeneratingDesc]   = useState(false)
   const [generatingReqId,  setGeneratingReqId]  = useState<number | null>(null)
@@ -439,6 +441,24 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
       onClose()
     } finally {
       setDeleting(false)
+    }
+  }
+
+  // ── Cursor export ────────────────────────────────────────────────────────────
+
+  async function handleCursorExport() {
+    setCursorExporting(true)
+    setError(null)
+    setCursorFiles(null)
+    try {
+      const res = await fetch(`/api/site-surveys/${survey.id}/proposals/cursor-export`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error ?? "Cursor export failed"); return }
+      setCursorFiles(data.files ?? [])
+    } catch {
+      setError("Cursor export failed — please try again")
+    } finally {
+      setCursorExporting(false)
     }
   }
 
@@ -749,6 +769,37 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
                     </div>
                   )}
 
+                  {/* ── Cursor Files ── */}
+                  {cursorFiles && cursorFiles.length > 0 && (
+                    <div className="rounded-xl border border-violet-800/40 bg-violet-950/30 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Code2 className="size-4 text-violet-400" />
+                        <span className="text-[12px] font-bold text-violet-300">Cursor / Claude Code Project Files</span>
+                      </div>
+                      <p className="text-[11px] text-violet-300/70">
+                        Place these files in the project root before starting development.
+                      </p>
+                      <div className="space-y-2">
+                        {cursorFiles.map(f => (
+                          <a
+                            key={f.name}
+                            href={f.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg border border-violet-800/30 bg-violet-950/50 hover:bg-violet-900/40 transition-colors"
+                          >
+                            <Code2 className="size-3.5 shrink-0 text-violet-400" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[12px] font-semibold text-violet-200">{f.name}</p>
+                              <p className="text-[10px] text-violet-400/70 truncate">{f.description}</p>
+                            </div>
+                            <ExternalLink className="size-3 shrink-0 text-violet-500" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {error && (
                     <p className="text-[12px] text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl px-3 py-2">
                       {error}
@@ -783,6 +834,18 @@ export function SurveyProposalModal({ open, onClose, survey, users }: Props) {
                   >
                     {exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}
                     {exporting ? "Exporting…" : "Download Word"}
+                  </button>
+                )}
+                {existingId && status === "ACCEPTED" && (
+                  <button
+                    type="button"
+                    onClick={handleCursorExport}
+                    disabled={cursorExporting}
+                    title="Generate CLAUDE.md, SPECIFICATIONS.md and PROJECT_PLAN.md for AI-assisted development"
+                    className="inline-flex items-center gap-2 rounded-xl border border-violet-800/50 bg-violet-950/70 px-3.5 py-2 text-[12px] font-semibold text-violet-300 hover:bg-violet-900/80 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    {cursorExporting ? <Loader2 className="size-3.5 animate-spin" /> : <Code2 className="size-3.5" />}
+                    {cursorExporting ? "Generating…" : "Cursor Files"}
                   </button>
                 )}
                 <button

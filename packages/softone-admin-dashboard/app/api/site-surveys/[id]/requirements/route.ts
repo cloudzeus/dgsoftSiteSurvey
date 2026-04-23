@@ -10,27 +10,39 @@ const MAX_BYTES = 50 * 1024 * 1024
 const VALID_SECTIONS = ["SOFTWARE", "WEB_ECOMMERCE", "IOT_AI", "HARDWARE_NETWORK", "COMPLIANCE"]
 
 type RequirementRow = {
-  id: number; surveyId: number; section: string; title: string
+  id: number; surveyId: number; section: string; source: string; title: string
   description: string | null
   fileUrl: string | null; filePath: string | null; fileName: string | null
   fileMimeType: string | null; fileSize: number | null
   createdAt: Date; updatedAt: Date
 }
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   const { id } = await params
   const surveyId = parseInt(id, 10)
   if (isNaN(surveyId)) return NextResponse.json({ error: "Invalid id" }, { status: 400 })
 
+  const url    = new URL(req.url)
+  const source = url.searchParams.get("source") // optional filter: CUSTOMER | COMPANY
+
   try {
-    const rows = await db.$queryRaw<RequirementRow[]>`
-      SELECT id, surveyId, section, title, description,
-             fileUrl, filePath, fileName, fileMimeType, fileSize,
-             createdAt, updatedAt
-      FROM ClientRequirement
-      WHERE surveyId = ${surveyId}
-      ORDER BY section ASC, createdAt ASC
-    `
+    const rows = source
+      ? await db.$queryRaw<RequirementRow[]>`
+          SELECT id, surveyId, section, source, title, description,
+                 fileUrl, filePath, fileName, fileMimeType, fileSize,
+                 createdAt, updatedAt
+          FROM ClientRequirement
+          WHERE surveyId = ${surveyId} AND source = ${source}
+          ORDER BY section ASC, createdAt ASC
+        `
+      : await db.$queryRaw<RequirementRow[]>`
+          SELECT id, surveyId, section, source, title, description,
+                 fileUrl, filePath, fileName, fileMimeType, fileSize,
+                 createdAt, updatedAt
+          FROM ClientRequirement
+          WHERE surveyId = ${surveyId}
+          ORDER BY section ASC, createdAt ASC
+        `
     return NextResponse.json(rows)
   } catch (e) {
     console.error(e)
@@ -53,10 +65,12 @@ export async function POST(req: Request, { params }: Params) {
     const section     = (formData.get("section")     as string | null)?.trim() ?? ""
     const title       = (formData.get("title")       as string | null)?.trim() ?? ""
     const description = (formData.get("description") as string | null)?.trim() || null
+    const source      = (formData.get("source")      as string | null)?.trim() || "CUSTOMER"
     const file        = formData.get("file") as File | null
 
-    if (!title)                        return NextResponse.json({ error: "title is required" }, { status: 400 })
-    if (!VALID_SECTIONS.includes(section)) return NextResponse.json({ error: "Invalid section" }, { status: 400 })
+    if (!title)                              return NextResponse.json({ error: "title is required" }, { status: 400 })
+    if (!VALID_SECTIONS.includes(section))   return NextResponse.json({ error: "Invalid section" }, { status: 400 })
+    if (!["CUSTOMER", "COMPANY"].includes(source)) return NextResponse.json({ error: "Invalid source" }, { status: 400 })
 
     let fileUrl: string | null      = null
     let filePath: string | null     = null
@@ -78,15 +92,15 @@ export async function POST(req: Request, { params }: Params) {
 
     await db.$executeRaw`
       INSERT INTO ClientRequirement
-        (surveyId, section, title, description, fileUrl, filePath, fileName, fileMimeType, fileSize, createdAt, updatedAt)
+        (surveyId, section, source, title, description, fileUrl, filePath, fileName, fileMimeType, fileSize, createdAt, updatedAt)
       VALUES
-        (${surveyId}, ${section}, ${title}, ${description},
+        (${surveyId}, ${section}, ${source}, ${title}, ${description},
          ${fileUrl}, ${filePath}, ${fileName}, ${fileMimeType}, ${fileSize},
          NOW(), NOW())
     `
 
     const [row] = await db.$queryRaw<RequirementRow[]>`
-      SELECT id, surveyId, section, title, description,
+      SELECT id, surveyId, section, source, title, description,
              fileUrl, filePath, fileName, fileMimeType, fileSize,
              createdAt, updatedAt
       FROM ClientRequirement WHERE id = LAST_INSERT_ID()

@@ -1193,6 +1193,7 @@ model ClientRequirement {
   id           Int           @id @default(autoincrement())
   surveyId     Int
   section      SurveySection
+  source       String        @default("CUSTOMER") @db.VarChar(10) // CUSTOMER | COMPANY
   title        String        @db.VarChar(300)
   description  String?       @db.Text
   fileUrl      String?       @db.Text      // public CDN URL
