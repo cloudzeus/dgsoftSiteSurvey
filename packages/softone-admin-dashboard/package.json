@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "prisma generate && next dev --turbopack --port 3000",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "start": "node .next/standalone/packages/softone-admin-dashboard/server.js",
     "type-check": "tsc --noEmit",
     "lint": "next lint",
     "test": "vitest run",
