@@ -9,6 +9,7 @@ export default async function SiteSurveyPage() {
   const t = await getTranslations("survey")
   const [surveys, total, users, customerOptions] = await Promise.all([
     db.siteSurvey.findMany({
+      where: { type: "SURVEY" },
       orderBy: { date: "desc" },
       include: {
         customer: { select: { id: true, name: true } },
@@ -20,7 +21,7 @@ export default async function SiteSurveyPage() {
         },
       },
     }),
-    db.siteSurvey.count(),
+    db.siteSurvey.count({ where: { type: "SURVEY" } }),
     db.user.findMany({
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },

@@ -1083,6 +1083,7 @@ model SiteSurvey {
   customerId    Int
   surveyorId    String
   status        String   @default("DRAFT") // DRAFT | SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED
+  type          String   @default("SURVEY") // SURVEY | PROJECT
 
   // Branches selected for this survey (stored as JSON array of TrdBranch ids)
   branchIds     Json     @default("[]")
