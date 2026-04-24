@@ -19,12 +19,14 @@ const PROPOSAL_SYSTEM = `
 7. Μην ξεκινάς ποτέ πρόταση με «Ως», «Στο πλαίσιο», «Σε ανταπόκριση», «Σε σχέση με».
 8. ΑΠΑΓΟΡΕΥΜΕΝΕΣ φράσεις: «Σε ανταπόκριση της απαίτησής σας», «headless frontend», «middleware layer», «API routes», «server-side rendering» — αντικατέστησέ τες με επιχειρηματικές περιγραφές.
 
-ΤΕΧΝΟΛΟΓΙΚΟ ΠΛΑΙΣΙΟ (για web/software λύσεις):
-9. Το βασικό framework είναι Next.js 16+ — αλλά το ονομάζεις «σύγχρονη web πλατφόρμα» ή «ψηφιακή πλατφόρμα» όταν απευθύνεσαι στον επιχειρηματία. Η τεχνική ονομασία αναφέρεται μόνο μία φορά με εξήγηση.
-10. E-commerce: ολοκληρωμένο ηλεκτρονικό κατάστημα με ανεξάρτητα συστήματα καταλόγου, παραγγελιών και πληρωμών.
-11. Πληρωμές: Stripe + Viva Wallet. Email αποστολής: Resend. Analytics: Plausible.
-12. ERP/CRM σύνδεση: ενοποίηση συστημάτων μέσω ασφαλούς API σύνδεσης.
-13. Hosting: Vercel ή αφιερωμένος διακομιστής με Docker.
+ΤΕΧΝΟΛΟΓΙΚΟ ΠΛΑΙΣΙΟ:
+9. ΟΛΕΣ οι τεχνολογικές προτάσεις πρέπει να είναι συμβατές και υλοποιήσιμες με Next.js 16+. Καμία πρόταση που δεν ενσωματώνεται στο Next.js ecosystem.
+10. Το framework ονομάζεται «σύγχρονη ψηφιακή πλατφόρμα» για τον επιχειρηματία — η τεχνική ονομασία Next.js 16+ αναφέρεται μόνο μία φορά σε παρένθεση.
+11. E-commerce: ολοκληρωμένο ηλεκτρονικό κατάστημα με ανεξάρτητα συστήματα καταλόγου, παραγγελιών και πληρωμών (Stripe + Viva Wallet).
+12. A/B Testing: PostHog Experiments μέσω Next.js Middleware — server-side, χωρίς επιβράδυνση.
+13. ERP/CRM σύνδεση: ενοποίηση συστημάτων μέσω ασφαλούς API σύνδεσης.
+14. Hosting: Vercel ή αφιερωμένος διακομιστής με Docker.
+15. ΑΠΑΓΟΡΕΥΕΤΑΙ: αναφορά σε Claude Code, AI code generation, ή οποιοδήποτε εργαλείο ανάπτυξης. Η πρόταση αφορά ΤΙ θα παραδοθεί, όχι ΠΩΣ αναπτύσσεται.
 
 ΑΦΗΓΗΜΑΤΙΚΗ ΔΟΜΗ:
 14. Η πρόταση είναι ΙΣΤΟΡΙΑ — αφηγείσαι τη μεταμόρφωση της εταιρίας από την τρέχουσα κατάσταση στη νέα πραγματικότητα.
@@ -57,6 +59,7 @@ interface SectionAnalysis {
   proposals: string
   ideas: string
   estimation?: string
+  services?: string
 }
 
 interface SectionRequirement {
@@ -155,6 +158,7 @@ export async function POST(req: Request, { params }: Params) {
 
     const hasWebOrSoftware = includedSections.some(k => ["web_ecommerce", "software"].includes(k))
     const hasEstimations   = includedSections.some(k => results[k]?.estimation?.trim())
+    const hasServices      = includedSections.some(k => results[k]?.services?.trim())
 
     // All customer requirements across all sections (flat list, labelled by section)
     const allRequirements: string[] = []
@@ -166,6 +170,8 @@ export async function POST(req: Request, { params }: Params) {
     const sectionContextBlocks: string[] = []
     // Estimation data
     const estimationBlocks: string[] = []
+    // Services/APIs with recurring costs (per section)
+    const servicesBlocks: string[] = []
     // All requirement objects for per-req responses
     const allRequirementObjects: Array<{ id: number; title: string; description: string | null; sectionLabel: string }> = []
 
@@ -209,6 +215,9 @@ export async function POST(req: Request, { params }: Params) {
       if (a.estimation?.trim()) {
         estimationBlocks.push(`[${sectionLabel}]: ${a.estimation.slice(0, 600)}`)
       }
+      if (a.services?.trim()) {
+        servicesBlocks.push(`[${sectionLabel}]:\n${a.services.slice(0, 800)}`)
+      }
     }
 
     const masterContext = [
@@ -226,6 +235,9 @@ export async function POST(req: Request, { params }: Params) {
       ``,
       `=== ΕΠΙΠΛΕΟΝ ΑΝΑΛΥΣΗ ===`,
       allAiProposals.length ? allAiProposals.join("\n") : "(Δεν υπάρχουν)",
+      ``,
+      `=== ΤΡΙΤΕΣ ΥΠΗΡΕΣΙΕΣ & APIs (με μηνιαίο/περιοδικό κόστος) ===`,
+      servicesBlocks.length ? servicesBlocks.join("\n\n") : "(Δεν υπάρχουν δεδομένα υπηρεσιών)",
     ].join("\n")
 
     // ── 4. Executive summary ────────────────────────────────────────────────
@@ -271,6 +283,7 @@ export async function POST(req: Request, { params }: Params) {
       `• Κάθε τεχνολογία αναφέρεται με την επιχειρηματική της αξία — π.χ. "η νέα ψηφιακή πλατφόρμα (Next.js 16+) επιτρέπει φόρτωση σελίδων σε κλάσματα δευτερολέπτου, αυξάνοντας τις μετατροπές"`,
       hasWebOrSoftware ? `• Η web λύση βασίζεται σε Next.js 16+ — αλλά αποκαλείται "σύγχρονη ψηφιακή πλατφόρμα" στο κείμενο, με μία τεχνική αναφορά σε παρένθεση` : ``,
       `• Οι τομείς (${sectionLabels}) συνδέονται μεταξύ τους — η λύση στον έναν τομέα ενισχύει τον άλλο`,
+      hasServices ? `• Αναφέρσου φυσικά στις τρίτες υπηρεσίες (hosting, email, analytics, A/B testing κ.λπ.) ως μέρος της ολοκληρωμένης λύσης — χωρίς να τις απαριθμείς σε λίστα` : ``,
       `• Χρησιμοποίησε «η εταιρία» — ΠΟΤΕ «σας» ή «σου»`,
       `• Μόνο παράγραφοι — χωρίς bullet points, χωρίς αριθμημένες λίστες, χωρίς τίτλους ενότητας`,
     ].filter(Boolean).join("\n")
@@ -301,7 +314,7 @@ export async function POST(req: Request, { params }: Params) {
 
     const projectPlanPrompt = [
       masterContext,
-      estimationBlocks.length ? `\n=== ΕΚΤΙΜΗΣΕΙΣ ΩΡΩΝ/ΚΟΣΤΟΥΣ ===\n${estimationBlocks.join("\n")}` : "",
+      estimationBlocks.length ? `\n=== ΕΚΤΙΜΗΣΕΙΣ ΩΡΩΝ/ΚΟΣΤΟΥΣ (για τον υπολογισμό κόστους ανάπτυξης) ===\n${estimationBlocks.join("\n")}` : "",
       ``,
       `Δημιούργησε ΠΛΗΡΕΣ ΠΛΑΝΟ ΕΚΤΕΛΕΣΗΣ ΕΡΓΟΥ — ΕΝΑ ενιαίο έργο που καλύπτει όλους τους τομείς.`,
       `Ο επιχειρηματίας πρέπει να καταλαβαίνει ΑΚΡΙΒΩΣ τι θα γίνει, πότε, τι θα παραλάβει, και γιατί.`,
@@ -331,14 +344,21 @@ export async function POST(req: Request, { params }: Params) {
       ``,
       hasEstimations ? [
         `ΟΙΚΟΝΟΜΙΚΗ ΕΚΤΙΜΗΣΗ`,
-        `• Εκτίμηση ωρών: [X]–[Y] ώρες`,
-        `• Κόστος ανάπτυξης (€60/ώρα): €[X.XXX]–€[Y.YYY]`,
+        `• Εκτίμηση ωρών ανάπτυξης: [X]–[Y] ώρες`,
+        `• Κόστος ανάπτυξης (€60/ώρα, Next.js stack): €[X.XXX]–€[Y.YYY] (εφάπαξ)`,
         `• Συνολική διάρκεια έργου: [X] μήνες`,
         `• Τρόπος τιμολόγησης: [Fixed-price / Φάσεις] — [γιατί αυτός ο τρόπος ωφελεί και τις δύο πλευρές]`,
-        `• Επιχειρηματική αξία επένδυσης: [ROI, εξοικονόμηση, ανταγωνιστικό πλεονέκτημα]`,
         ``,
-        `ΓΙΑΤΙ AI-ASSISTED ΑΝΑΠΤΥΞΗ`,
-        `[2-3 προτάσεις: τι είναι η AI-assisted ανάπτυξη, πώς επιταχύνει την υλοποίηση, τι σημαίνει για την ποιότητα και το κόστος — κατανοητά, χωρίς τεχνικό jargon]`,
+        `ΠΕΡΙΟΔΙΚΟ ΚΟΣΤΟΣ ΤΡΙΤΩΝ ΥΠΗΡΕΣΙΩΝ`,
+        `(Βασίσου στα δεδομένα υπηρεσιών του masterContext για ακριβή αριθμούς)`,
+        `• [Υπηρεσία 1]: €X/μήνα — [σκοπός σε 3-4 λέξεις]`,
+        `• [Υπηρεσία 2]: €X/μήνα — [σκοπός]`,
+        `• [... όλες οι υπηρεσίες που απαιτούνται]`,
+        `• Εκτ. μηνιαίο κόστος υπηρεσιών: €[X]–€[Y]/μήνα`,
+        `• Εκτ. ετήσιο κόστος υπηρεσιών: €[X]–€[Y]/έτος`,
+        `Σημείωση: [1 πρόταση για το γιατί αυτό το κόστος είναι επένδυση, όχι έξοδο]`,
+        ``,
+        `• Επιχειρηματική αξία επένδυσης: [ROI, εξοικονόμηση, ανταγωνιστικό πλεονέκτημα]`,
       ].join("\n") : "",
       ``,
       `ΚΙΝΔΥΝΟΙ & ΑΝΤΙΜΕΤΩΠΙΣΗ`,

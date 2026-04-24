@@ -30,6 +30,7 @@ const NEXTJS_STACK_RULES = `
 • Maps: Leaflet ή Google Maps API με Next.js.
 • AI features: Vercel AI SDK με Claude (Anthropic) ή OpenAI — native Next.js streaming.
 • Hosting: Vercel (1η επιλογή), Railway, ή VPS με Docker + Nginx.
+• A/B Testing: PostHog (self-hosted ή cloud, GDPR-compliant, δωρεάν έως 1M events/μήνα) με Next.js Middleware για server-side experiment splitting — χωρίς layout shift. Εναλλακτικά Vercel Feature Flags (included σε Vercel Pro). ΠΟΤΕ client-side A/B testing που προκαλεί layout shift.
 • ΠΟΤΕ μην προτείνεις: WordPress (εκτός αν ζητηθεί ρητά), PHP custom, jQuery-based stacks, ή Angular/Vue αν υπάρχει Next.js εναλλακτική.
 • Αν υπάρχει απαίτηση για ERP/CRM ενοποίηση: χρησιμοποίησε Next.js API routes ως middleware layer.
 `.trim()
@@ -43,9 +44,9 @@ const SECTION_EXPERTS: Record<string, string> = {
 
   WEB_ECOMMERCE: `Είσαι ανώτερος σύμβουλος ψηφιακής παρουσίας και ηλεκτρονικού εμπορίου με 20+ χρόνια εμπειρία σε ιστοτόπους, ηλεκτρονικά καταστήματα, SEO, ψηφιακό μάρκετινγκ και ψηφιακές πληρωμές. Χρησιμοποιείς Next.js 16+ ως το βασικό framework για ΟΛΕΣ τις web εφαρμογές — eshop, portal, landing pages, B2B platforms. Αξιολογείς ψηφιακή παρουσία επιχειρήσεων και συντάσσεις εκθέσεις κατάστασης και στρατηγικές βελτίωσης.\n${LANGUAGE_RULES}\n\n${NEXTJS_STACK_RULES}`,
 
-  IOT_AI: `Είσαι ανώτερος σύμβουλος ψηφιακού μετασχηματισμού με 20+ χρόνια εμπειρία σε συστήματα IoT, αυτοματισμούς και εφαρμογές τεχνητής νοημοσύνης για επιχειρήσεις. Αξιολογείς ψηφιακή ετοιμότητα και συντάσσεις εκθέσεις κατάστασης και προτάσεις εκσυγχρονισμού.\n${LANGUAGE_RULES}`,
+  IOT_AI: `Είσαι ανώτερος σύμβουλος ψηφιακού μετασχηματισμού με 20+ χρόνια εμπειρία σε συστήματα IoT, αυτοματισμούς και εφαρμογές τεχνητής νοημοσύνης για επιχειρήσεις. Όταν απαιτείται dashboard, portal ή API, η λύση βασίζεται στο Next.js 16+. Αξιολογείς ψηφιακή ετοιμότητα και συντάσσεις εκθέσεις κατάστασης και προτάσεις εκσυγχρονισμού.\n${LANGUAGE_RULES}\n\n${NEXTJS_STACK_RULES}`,
 
-  COMPLIANCE: `Είσαι ανώτερος σύμβουλος κανονιστικής συμμόρφωσης και ασφάλειας πληροφοριών με 20+ χρόνια εμπειρία σε GDPR, NIS2, ISO 27001 και κυβερνοασφάλεια. Αξιολογείς επίπεδο συμμόρφωσης επιχειρήσεων και συντάσσεις εκθέσεις κινδύνου και πλάνα αποκατάστασης.\n${LANGUAGE_RULES}`,
+  COMPLIANCE: `Είσαι ανώτερος σύμβουλος κανονιστικής συμμόρφωσης και ασφάλειας πληροφοριών με 20+ χρόνια εμπειρία σε GDPR, NIS2, ISO 27001 και κυβερνοασφάλεια. Για compliance portals, dashboards ή reporting tools, χρησιμοποιείς Next.js 16+. Αξιολογείς επίπεδο συμμόρφωσης επιχειρήσεων και συντάσσεις εκθέσεις κινδύνου και πλάνα αποκατάστασης.\n${LANGUAGE_RULES}`,
 }
 
 const SECTION_LABELS_GR: Record<string, string> = {
@@ -349,12 +350,13 @@ export async function POST(req: Request, { params }: Params) {
           `---`,
           ``,
           `Δημιούργησε ΔΟΜΗΜΕΝΗ ΕΚΤΙΜΗΣΗ ΕΡΓΟΥ για κάθε πρόταση.`,
-          `Ανάπτυξη με Claude Code (Anthropic AI) — ωριαία €60, ελληνική αγορά 2024-2025.`,
+          `Ωριαία χρέωση ανάπτυξης: €60, ελληνική αγορά 2024-2025. ΟΛΕΣ οι προτάσεις υλοποιούνται με Next.js 16+.`,
           ``,
           `Για ΚΑΘΕ πρόταση (ίδιος αριθμός με τη λίστα):`,
           `[Αρ.] [Τίτλος — ακριβώς ίδιος]`,
           `• Πολυπλοκότητα: Απλό / Μεσαίο / Σύνθετο`,
           `• Φάση υλοποίησης: [Έναρξη / Μέση φάση / Τελική φάση / Standalone]`,
+          `• Υλοποίηση: Next.js [συγκεκριμένα packages/modules που χρησιμοποιούνται]`,
           `• Εκτ. ώρες: [X]–[Y] ώρες`,
           `• Κόστος (€60/ώρα): €[X.XXX]–€[Y.YYY]`,
           `• Εξαρτάται από: [Αρ. πρότασης ή "Καμία"]`,
@@ -367,24 +369,43 @@ export async function POST(req: Request, { params }: Params) {
         ].join("\n"), 6000))
       : ""
 
-    // ΤΜΗΜΑ 6 — APIs & Services (only for SOFTWARE, WEB_ECOMMERCE, IOT_AI)
+    // ΤΜΗΜΑ 6 — APIs & Services with recurring costs (SOFTWARE, WEB_ECOMMERCE, IOT_AI)
     const SERVICES_SECTIONS = new Set(["SOFTWARE", "WEB_ECOMMERCE", "IOT_AI"])
     const services = SERVICES_SECTIONS.has(sectionEnum)
       ? stripMarkdown(await askDeepSeek([
           `${intro}`,
-          `Δημιούργησε λίστα ΤΡΙΤΩΝ ΕΦΑΡΜΟΓΩΝ, APIs και ΥΠΗΡΕΣΙΩΝ που χρειάζεται αυτή η εταιρεία για τον τομέα «${label}».`,
-          `Βασίσου στο Next.js ecosystem και τα αιτήματα/προτάσεις που έχουν καταγραφεί.`,
-          `Για ΚΑΘΕ υπηρεσία:`,
-          `[Αρ.] [Όνομα υπηρεσίας / Εφαρμογής]`,
-          `• Πάροχος: [εταιρεία]`,
-          `• Σκοπός: [τι κάνει — 1 πρόταση]`,
-          `• Κόστος: [€X/μήνα ή €X ανά χρήση — να είναι ρεαλιστικά τιμολόγια 2024-2025]`,
-          `• Πλάνο: [Free / Starter / Pro / Enterprise — ποιο αρμόζει]`,
           ``,
-          `Συμπερίλαβε: hosting, email, πληρωμές, CDN, analytics, monitoring, email marketing, AI APIs, storage, maps, SMS/push κ.α. όπου αρμόζει.`,
-          `Μόνο υπηρεσίες που ΠΡΑΓΜΑΤΙΚΑ χρειάζεται αυτή η εταιρεία — όχι γενικές προτάσεις.`,
-          `Αριθμημένη λίστα, 6-12 υπηρεσίες.`,
-        ].join("\n"), 3000))
+          `Αιτήματα/προτάσεις για αυτό τον τομέα (context):`,
+          compSuggLines || reqLines,
+          ``,
+          `Δημιούργησε ΠΛΗΡΗ ΛΙΣΤΑ ΤΡΙΤΩΝ ΕΦΑΡΜΟΓΩΝ, APIs ΚΑΙ ΥΠΗΡΕΣΙΩΝ για τον τομέα «${label}».`,
+          `Βασίσου ΑΠΟΚΛΕΙΣΤΙΚΑ στο Next.js 16+ ecosystem και τα καταγεγραμμένα αιτήματα.`,
+          ``,
+          `ΥΠΟΧΡΕΩΤΙΚΟ FORMAT για κάθε υπηρεσία:`,
+          `[Αρ.] [Όνομα υπηρεσίας]`,
+          `• Πάροχος: [εταιρεία]`,
+          `• Σκοπός: [τι επιλύει — 1 πρόταση στα ελληνικά]`,
+          `• Κόστος: [€X/μήνα ή €X ανά χρήση — ΑΚΡΙΒΑ τιμολόγια 2024-2025 από επίσημη σελίδα]`,
+          `• Πλάνο: [Free / Starter / Pro / Enterprise]`,
+          `• Τύπος: [Μηνιαία συνδρομή / Ανά χρήση / Δωρεάν]`,
+          ``,
+          `Κατηγορίες που ΠΑΝΤΑ συμπεριλαμβάνεις (αν αρμόζουν):`,
+          `— Hosting/Deployment (Vercel, Railway, VPS)`,
+          `— Database (PlanetScale, Supabase, ή self-hosted)`,
+          `— Email transactional (Resend, SendGrid)`,
+          `— Email marketing (Brevo/Sendinblue, Mailchimp)`,
+          `— Analytics (Plausible, PostHog)`,
+          `— A/B Testing (PostHog Experiments, Vercel Feature Flags)`,
+          `— Monitoring/Errors (Sentry)`,
+          `— Πληρωμές (Stripe, Viva Wallet — commission %)`,
+          `— Storage/CDN (Cloudflare R2, AWS S3, Bunny CDN)`,
+          `— Maps (Google Maps API)`,
+          `— SMS/Push (Twilio, OneSignal)`,
+          `— AI (OpenAI API, Anthropic Claude API)`,
+          ``,
+          `Μόνο υπηρεσίες που ΠΡΑΓΜΑΤΙΚΑ χρειάζεται αυτή η εταιρεία. 8-14 υπηρεσίες.`,
+          `Στο τέλος γράψε: ΕΚΤΙΜΩΜΕΝΟ ΜΗΝΙΑΙΟ ΚΟΣΤΟΣ ΥΠΗΡΕΣΙΩΝ: €[X]–€[Y]/μήνα`,
+        ].join("\n"), 4000))
       : ""
 
     return {
