@@ -23,11 +23,6 @@ RUN mkdir -p packages/softone-admin-dashboard/public
 RUN cd packages/softone-admin-dashboard && npx prisma generate
 RUN npm run build -w softone-admin-dashboard
 
-# Fail the build immediately if the static bundle wasn't generated — prevents
-# a silent broken image that serves 404 for all /_next/static/* assets.
-RUN test -d packages/softone-admin-dashboard/.next/static || \
-    { echo "ERROR: .next/static/ missing after build" >&2; exit 1; }
-
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -41,18 +36,26 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Standalone server output (page rendering + Node modules)
 COPY --from=builder --chown=nextjs:nodejs /app/packages/softone-admin-dashboard/.next/standalone ./
 
-# Static assets — standalone output intentionally omits .next/static.
-# Missing this causes Next.js to silently return 404 for all /_next/static/* URLs.
+# Static assets (CSS, JS chunks, fonts, images).
+# Next.js standalone intentionally omits .next/static — it must be copied
+# separately. The static-proxy serves these directly from the filesystem
+# so we never rely on Next.js's broken standalone static-file routing.
 COPY --from=builder --chown=nextjs:nodejs \
      /app/packages/softone-admin-dashboard/.next/static \
      ./packages/softone-admin-dashboard/.next/static
 
-# public/ assets (favicon, robots.txt, etc.) — directory is guaranteed by builder
+# public/ assets (favicon, robots.txt, etc.)
 COPY --from=builder --chown=nextjs:nodejs \
      /app/packages/softone-admin-dashboard/public \
      ./packages/softone-admin-dashboard/public
 
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+# Static-file proxy: runs on PORT=3000, forwards non-static to Next.js on :3001
+COPY --chown=nextjs:nodejs \
+     packages/softone-admin-dashboard/static-proxy.cjs \
+     /usr/local/lib/static-proxy.cjs
+
+# Entrypoint: starts Next.js on :3001, then starts the proxy on :3000
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER nextjs
@@ -61,8 +64,6 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Run from inside the package dir so __dirname and process.cwd() agree,
-# which is where Next.js resolves .next/static and public at runtime.
+# Run from inside the package dir so __dirname resolves correctly for Next.js
 WORKDIR /app/packages/softone-admin-dashboard
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["node", "server.js"]

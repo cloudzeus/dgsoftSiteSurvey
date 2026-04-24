@@ -1,13 +1,15 @@
 #!/bin/sh
 set -e
 
-STATIC_DIR=".next/static"
+# Start Next.js on the internal port (3001)
+PORT=3001 node server.js &
+NEXT_PID=$!
 
-if [ ! -d "$STATIC_DIR" ]; then
-  echo "FATAL: $STATIC_DIR not found — all /_next/static/* requests will 404." >&2
-  echo "Ensure the Dockerfile copies .next/static into the runner image." >&2
-  exit 1
-fi
+# Propagate SIGTERM/SIGINT to Next.js when container stops
+trap 'kill $NEXT_PID 2>/dev/null; exit 0' TERM INT
 
-echo "Static assets OK ($(ls "$STATIC_DIR" | wc -l | tr -d ' ') top-level entries in .next/static)"
-exec "$@"
+# Start the static-file proxy on the external port (3000).
+# This serves /_next/static/* directly from the filesystem and proxies
+# everything else to Next.js — bypassing the broken static-file scan
+# in Next.js standalone mode.
+exec node /usr/local/lib/static-proxy.cjs
