@@ -23,6 +23,7 @@ import { SiteSurveyReportModal } from "./site-survey-report-modal"
 import { SurveyProposalModal } from "./survey-proposal-modal"
 import { SurveySendMailDialog } from "./survey-send-mail-dialog"
 import { SurveyInviteDialog } from "./survey-invite-dialog"
+import { AiAnalysisDialog } from "./ai-analysis-dialog"
 import type { SurveySection, SurveyStatus } from "@/app/actions/site-survey"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1609,6 +1610,7 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
   const [fileUploadSurvey, setFileUploadSurvey] = useState<SurveyTableRow | null>(null)
   const [reportSurvey, setReportSurvey] = useState<SurveyTableRow | null>(null)
   const [proposalSurvey, setProposalSurvey] = useState<SurveyTableRow | null>(null)
+  const [aiSurvey, setAiSurvey] = useState<SurveyTableRow | null>(null)
   const [mailSurvey, setMailSurvey] = useState<SurveyTableRow | null>(null)
   // Incremented after each upload to signal ExpandedRow to reload files
   const [filesRefreshKeys, setFilesRefreshKeys] = useState<Record<number, number>>({})
@@ -1997,6 +1999,12 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
                                 <FileBarChart2 className="size-3.5" style={{ color: "var(--muted-foreground)" }} /> {t("actions.viewReport")}
                               </DropdownMenu.Item>
                               <DropdownMenu.Item
+                                onSelect={() => setAiSurvey(s)}
+                                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-violet-950/40 text-violet-300 transition-colors"
+                              >
+                                <Sparkles className="size-3.5 text-violet-400" /> AI Ανάλυση
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Item
                                 onSelect={() => setProposalSurvey(s)}
                                 className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer select-none outline-none hover:bg-[var(--muted)] transition-colors"
                               >
@@ -2117,6 +2125,21 @@ export function SiteSurveysTable({ surveys: initialSurveys, total: initialTotal,
           onClose={() => setProposalSurvey(null)}
           survey={proposalSurvey}
           users={users}
+        />
+      )}
+
+      {aiSurvey && (
+        <AiAnalysisDialog
+          surveyId={aiSurvey.id}
+          surveyName={aiSurvey.name}
+          customerName={aiSurvey.customer.name ?? ""}
+          sections={aiSurvey.sections.length > 0 ? aiSurvey.sections : ["hardware_network", "software", "web_ecommerce", "compliance", "iot_ai"]}
+          onClose={() => setAiSurvey(null)}
+          onProposalCreated={() => {
+            const s = aiSurvey
+            setAiSurvey(null)
+            setProposalSurvey(s)
+          }}
         />
       )}
 

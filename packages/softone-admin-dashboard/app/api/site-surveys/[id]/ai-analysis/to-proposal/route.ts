@@ -19,6 +19,14 @@ const SALES_SYSTEM = `
 7. Μην ξεκινάς ποτέ με «Ως», «Στο πλαίσιο» ή «Σε σχέση με». Ξεκίνα με ουσία.
 8. ΑΠΑΓΟΡΕΥΕΤΑΙ η επανάληψη: κάθε ενότητα πρέπει να προσφέρει νέο περιεχόμενο — χωρίς ανακύκλωση πληροφοριών από άλλα μέρη.
 9. Ο πελάτης πρέπει να διαβάσει και να κατανοεί πλήρως χωρίς τεχνικές γνώσεις — εξηγείς κάθε τεχνική επιλογή με επιχειρηματικούς όρους.
+
+ΠΡΟΤΙΜΗΤΕΟ ΤΕΧΝΟΛΟΓΙΚΟ ΠΛΑΙΣΙΟ — εφάρμοζε σε ΟΛΕΣ τις web/software προτάσεις:
+10. Για ΟΠΟΙΑΔΗΠΟΤΕ web εφαρμογή, eshop, portal ή custom λογισμικό: η προτεινόμενη λύση βασίζεται στο Next.js 16+ (App Router, Server Components) με Tailwind CSS, Prisma, NextAuth v5.
+11. E-commerce: Medusa.js headless + Next.js storefront, ή WooCommerce headless. Ποτέ monolithic WordPress εκτός αν ζητηθεί ρητά.
+12. Πληρωμές: Stripe (διεθνές) + Viva Wallet (ελληνική αγορά). Email: Resend + React Email. Hosting: Vercel ή VPS Docker.
+13. AI features: Vercel AI SDK με Claude (Anthropic) — native streaming στο Next.js. Analytics: Plausible (GDPR-compliant).
+14. ERP/CRM ενοποίηση: Next.js API routes ως middleware layer — ασφαλής, scalable, χωρίς vendor lock-in.
+15. Κάθε τεχνική επιλογή εξηγείται με επιχειρηματικά πλεονεκτήματα, όχι μόνο τεχνική περιγραφή.
 `.trim()
 
 const SECTION_LABELS: Record<string, string> = {
@@ -186,22 +194,24 @@ export async function POST(req: Request, { params }: Params) {
       const aiItems      = proposalItemsBySection[enumKey] ?? []
 
       // Build all inputs for this section
+      const isWebOrSoftware = enumKey === "WEB_ECOMMERCE" || enumKey === "SOFTWARE"
+
       const inputBlocks: string[] = []
       if (sectionReqs.length) {
         inputBlocks.push(
-          `Αιτήματα εταιρείας-πελάτη:\n` +
+          `[Α] ΑΙΤΗΜΑΤΑ ΠΕΛΑΤΗ — αυτά πρέπει να απαντηθούν ρητά στη λύση:\n` +
           sectionReqs.map((r, i) => `${i + 1}. ${r.title}${r.description ? ` — ${r.description}` : ""}`).join("\n")
         )
       }
       if (compSuggs.length) {
         inputBlocks.push(
-          `Τεχνικές εκτιμήσεις της ομάδας μας:\n` +
+          `[Β] ΠΡΟΤΑΣΕΙΣ ΕΤΑΙΡΕΙΑΣ ΜΑΣ — τεχνικές εκτιμήσεις που ενσωματώνουμε στη λύση:\n` +
           compSuggs.map((r, i) => `${i + 1}. ${r.title}${r.description ? ` — ${r.description}` : ""}`).join("\n")
         )
       }
       if (aiItems.length) {
         inputBlocks.push(
-          `Προτεινόμενες βελτιώσεις από ανάλυση:\n` +
+          `[Γ] ΕΠΙΠΛΕΟΝ AI ΑΝΑΛΥΣΗ — εντοπισμένες ευκαιρίες από τεχνική ανάλυση:\n` +
           aiItems.map((t, i) => `${i + 1}. ${t.slice(0, 200)}`).join("\n")
         )
       }
@@ -216,7 +226,10 @@ export async function POST(req: Request, { params }: Params) {
         ...inputBlocks,
         ``,
         `Συνέταξε ΟΛΟΚΛΗΡΩΜΕΝΗ ΠΑΡΟΥΣΙΑΣΗ ΛΥΣΗΣ (350-450 λέξεις) για τον τομέα «${sectionLabel}».`,
-        `Ενσωμάτωσε ΟΛΑ τα παραπάνω (αιτήματα + εσωτερικές εκτιμήσεις + προτάσεις) σε ΕΝΑ ΣΥΝΕΚΤΙΚΟ κείμενο.`,
+        `ΥΠΟΧΡΕΩΤΙΚΟ: Κάθε αίτημα πελάτη [Α] πρέπει να απαντηθεί ρητά — ο πελάτης πρέπει να αναγνωρίζει ότι ακούστηκε.`,
+        `ΥΠΟΧΡΕΩΤΙΚΟ: Οι προτάσεις της εταιρείας μας [Β] ενσωματώνονται ως συμπληρωματική αξία που προσθέτουμε εμείς.`,
+        `Τα ευρήματα AI ανάλυσης [Γ] χρησιμοποιούνται ως υπόβαθρο — δεν αναφέρονται χωριστά.`,
+        isWebOrSoftware ? `ΤΕΧΝΟΛΟΓΙΑ: Η λύση βασίζεται στο Next.js 16+ ecosystem. Ανέφερε συγκεκριμένα εργαλεία (Next.js, Tailwind, Prisma, Stripe/Viva Wallet, Vercel κ.λπ.) και εξήγησε ΓΙΑΤΙ αυτή η επιλογή ωφελεί την εταιρεία.` : ``,
         `Μην κάνεις λίστα αιτημάτων — γράψε τη λύση ολιστικά ως ενιαίο πλαίσιο που καλύπτει τα πάντα.`,
         `Εξήγησε ΓΙΑΤΙ κάθε επιλογή γίνεται — με επιχειρηματικούς όρους, όχι μόνο τεχνικούς.`,
         `Χρησιμοποίησε «η εταιρεία» — ΠΟΤΕ «σας». Μόνο κείμενο παραγράφων, χωρίς bullet points.`,
@@ -254,6 +267,8 @@ export async function POST(req: Request, { params }: Params) {
       .map(k => SECTION_LABELS[SECTION_ENUM[k] ?? ""] ?? k)
       .join(", ")
 
+    const hasWebOrSoftware = includedSections.some(k => ["web_ecommerce", "software"].includes(k))
+
     const allContext = includedSections.map(key => {
       const a = results[key]
       const enumKey = SECTION_ENUM[key]
@@ -284,6 +299,7 @@ export async function POST(req: Request, { params }: Params) {
       `Δημιούργησε ΠΛΗΡΕΣ ΠΛΑΝΟ ΕΚΤΕΛΕΣΗΣ ΕΡΓΟΥ που αντιμετωπίζει ΟΛΑ τα παραπάνω ως ΕΝΑ ΕΝΙΑΙΟ ΕΡΓΟ.`,
       `Ο πελάτης θα διαβάσει αυτό και πρέπει να κατανοεί ΑΚΡΙΒΩΣ τι θα γίνει, πότε, τι θα παραλάβει, και γιατί.`,
       `Εξήγησε κάθε απόφαση με επιχειρηματικούς όρους — όχι μόνο τεχνικούς.`,
+      hasWebOrSoftware ? `ΤΕΧΝΟΛΟΓΙΚΟ STACK: Για web/software components χρησιμοποίησε Next.js 16+ (App Router), Tailwind CSS, Prisma ORM, NextAuth v5, Vercel/Docker hosting. Ανέφερε αυτά στη φάση αρχιτεκτονικής και εξήγησε τα πλεονεκτήματά τους για την εταιρεία.` : ``,
       ``,
       `Χρησιμοποίησε ΑΚΡΙΒΩΣ αυτή τη δομή (αφαίρεσε ενότητα μόνο αν δεν εφαρμόζεται):`,
       ``,
