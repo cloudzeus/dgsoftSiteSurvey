@@ -89,6 +89,14 @@ function formatAnswer(answerValue: string | null, type: string): string {
   return answerValue
 }
 
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*{1,3}([^*\n]+)\*{1,3}/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""))
+    .trim()
+}
+
 // ─── POST /api/site-surveys/:id/ai-analysis ───────────────────────────────────
 // Body: { section?: string } — if omitted, analyses all survey sections.
 
@@ -193,6 +201,7 @@ export async function POST(req: Request, { params }: Params) {
     proposals: string
     ideas: string
     estimation: string
+    services: string
   }> {
     const qs    = questions.filter(q => q.section === sectionEnum)
     const label = SECTION_LABELS_GR[sectionEnum] ?? sectionEnum
@@ -266,7 +275,7 @@ export async function POST(req: Request, { params }: Params) {
     }
 
     // ΤΜΗΜΑ 1 — Current Situation (4 000 tokens)
-    const currentSituation = await askDeepSeek([
+    const currentSituation = stripMarkdown(await askDeepSeek([
       `${intro}`,
       `Γράψε ΕΚΤΕΝΗ ΠΕΡΙΓΡΑΦΗ ΤΡΕΧΟΥΣΑΣ ΚΑΤΑΣΤΑΣΗΣ (6-8 πλούσιες παραγράφους) για τον τομέα «${label}».`,
       `• Ξεκίνα με ολιστικό portrait: τι λειτουργεί καλά, ποια φιλοσοφία διέπει τη διαχείριση του τομέα.`,
@@ -275,24 +284,24 @@ export async function POST(req: Request, { params }: Params) {
       `• Επισήμανε ανακολουθίες ή παράδοξα από τα δεδομένα.`,
       `• Κλείσε με πρόταση-αφετηρία για το επόμενο βήμα.`,
       `Μόνο κείμενο παραγράφων — χωρίς τίτλους ενότητας.`,
-    ].join("\n"), 4000)
+    ].join("\n"), 4000))
 
     // ΤΜΗΜΑ 2 — Gaps & Weaknesses (3 500 tokens)
-    const gaps = await askDeepSeek([
+    const gaps = stripMarkdown(await askDeepSeek([
       `${intro}`,
-      `Γράψε ΑΝΑΛΥΤΙΚΗ ΚΑΤΑΓΡΑΦΗ ΚΕΝΩΝ ΚΑΙ ΑΔΥΝΑΜΙΩΝ για τον τομέα «${label}».`,
-      `Κατέγραψε 6-9 κενά/αδυναμίες σε μορφή αριθμημένης λίστας. Για ΚΑΘΕ ένα:`,
-      `1. Τίτλος κενού`,
-      `2. Τι ακριβώς λείπει ή λειτουργεί ελλιπώς`,
-      `3. Ποια δεδομένα της έρευνας το αποδεικνύουν`,
-      `4. Ο επιχειρηματικός κίνδυνος: οικονομικό κόστος, ασφάλεια, ανταγωνιστικότητα ή νομικό ρίσκο`,
-      hasReqs ? `5. Σύνδεση με αίτημα πελάτη αν αρμόζει.` : ``,
-      `Μόνο λίστα — χωρίς εισαγωγικό ή συμπέρασμα.`,
-    ].filter(Boolean).join("\n"), 3500)
+      `Γράψε ΑΝΑΛΥΤΙΚΗ ΚΑΤΑΓΡΑΦΗ ΚΕΝΩΝ ΚΑΙ ΑΔΥΝΑΜΙΩΝ για τον τομέα «${label}» με έντονο εμπορικό τόνο.`,
+      `Κατέγραψε 6-8 κενά/αδυναμίες σε αριθμημένη λίστα. Για ΚΑΘΕ ένα:`,
+      `1. Τίτλος κενού — δυναμικός και σαφής`,
+      `2. Τι ακριβώς λείπει ή λειτουργεί ελλιπώς — με συγκεκριμένα παραδείγματα`,
+      `3. Ο επιχειρηματικός αντίκτυπος: χαμένα έσοδα, αυξημένο κόστος, ρίσκο, ανταγωνιστικό μειονέκτημα`,
+      `4. Η επείγουσα ανάγκη αντιμετώπισης — τι συμβαίνει αν δεν γίνει τίποτα`,
+      hasReqs ? `5. Σύνδεση με δηλωμένο αίτημα πελάτη όπου αρμόζει.` : ``,
+      `Ύφος: επαγγελματικό αλλά πειστικό — ο αναγνώστης να αισθάνεται την ανάγκη αλλαγής. Μόνο αριθμημένη λίστα.`,
+    ].filter(Boolean).join("\n"), 3500))
 
     // ΤΜΗΜΑ 3 — Proposals (5 000 tokens — largest, include all reqs + comp suggestions)
     const isWebSoftware = sectionEnum === "WEB_ECOMMERCE" || sectionEnum === "SOFTWARE"
-    const proposals = await askDeepSeek([
+    const proposals = stripMarkdown(await askDeepSeek([
       `${intro}`,
       ``,
       `Τα δεδομένα εισόδου χωρίζονται σε τρεις πηγές — αντιμετώπισέ τες ξεχωριστά:`,
@@ -313,10 +322,10 @@ export async function POST(req: Request, { params }: Params) {
       `• Ενδεικτικό χρονοδιάγραμμα (π.χ. «1-2 μήνες», «άμεσα»)`,
       `• Προτεραιότητα: ΚΡΙΣΙΜΗ / ΥΨΗΛΗ / ΜΕΣΑΙΑ`,
       `Μόνο αριθμημένη λίστα — χωρίς εισαγωγή.`,
-    ].filter(Boolean).join("\n"), 5000)
+    ].filter(Boolean).join("\n"), 5000))
 
     // ΤΜΗΜΑ 4 — Upgrade Ideas (3 000 tokens)
-    const ideas = await askDeepSeek([
+    const ideas = stripMarkdown(await askDeepSeek([
       `${intro}`,
       `Γράψε ΙΔΕΕΣ ΓΙΑ ΑΝΑΒΑΘΜΙΣΗ ΚΑΙ ΕΚΣΥΓΧΡΟΝΙΣΜΟ για τον τομέα «${label}».`,
       `Παρουσίασε 5-6 φουτουριστικές αλλά ρεαλιστικές ιδέες σε αριθμημένη λίστα.`,
@@ -327,12 +336,12 @@ export async function POST(req: Request, { params }: Params) {
       `• Ποια ανταγωνιστικά πλεονεκτήματα δημιουργεί`,
       `• Σύνδεση με τάσεις της ελληνικής/ευρωπαϊκής αγοράς`,
       `Να ανοίγουν τον ορίζοντα χωρίς να φαίνονται ανέφικτες. Μόνο αριθμημένη λίστα.`,
-    ].join("\n"), 3000)
+    ].join("\n"), 3000))
 
     // ΤΜΗΜΑ 5 — Per-proposal effort estimates (6 000 tokens, only for SOFTWARE & WEB_ECOMMERCE)
     // Outputs structured per-proposal estimates; the unified project plan is built later in to-proposal.
     const estimation = hasEstimation
-      ? await askDeepSeek([
+      ? stripMarkdown(await askDeepSeek([
           `${intro}`,
           `Παρακάτω οι προτεινόμενες βελτιώσεις για τον τομέα «${label}»:`,
           `---`,
@@ -340,23 +349,42 @@ export async function POST(req: Request, { params }: Params) {
           `---`,
           ``,
           `Δημιούργησε ΔΟΜΗΜΕΝΗ ΕΚΤΙΜΗΣΗ ΕΡΓΟΥ για κάθε πρόταση.`,
-          `Ανάπτυξη με Claude Code (Anthropic AI) — ωριαία €60-80, ελληνική αγορά 2024-2025.`,
+          `Ανάπτυξη με Claude Code (Anthropic AI) — ωριαία €60, ελληνική αγορά 2024-2025.`,
           ``,
           `Για ΚΑΘΕ πρόταση (ίδιος αριθμός με τη λίστα):`,
           `[Αρ.] [Τίτλος — ακριβώς ίδιος]`,
           `• Πολυπλοκότητα: Απλό / Μεσαίο / Σύνθετο`,
           `• Φάση υλοποίησης: [Έναρξη / Μέση φάση / Τελική φάση / Standalone]`,
-          `• Εκτ. ώρες (Claude Code): [X]–[Y] ώρες`,
-          `• Κόστος: €[X.XXX]–€[Y.YYY]`,
+          `• Εκτ. ώρες: [X]–[Y] ώρες`,
+          `• Κόστος (€60/ώρα): €[X.XXX]–€[Y.YYY]`,
           `• Εξαρτάται από: [Αρ. πρότασης ή "Καμία"]`,
           `• Παραδοτέο: [Τι ακριβώς παραλαμβάνει η εταιρεία — συγκεκριμένο, δοκιμάσιμο]`,
           ``,
           `Στο τέλος ΣΥΝΟΛΟ:`,
           `• Σύνολο ωρών: [X]–[Y] ώρες`,
-          `• Συνολικό κόστος: €[X.XXX]–€[Y.YYY]`,
-          `• Παραδοσιακή ανάπτυξη: ~€[Z.ZZZ]–€[W.WWW] (εξοικονόμηση [X]%)`,
+          `• Συνολικό κόστος (€60/ώρα): €[X.XXX]–€[Y.YYY]`,
           `• Εκτ. διάρκεια τομέα: [X] μήνες`,
-        ].join("\n"), 6000)
+        ].join("\n"), 6000))
+      : ""
+
+    // ΤΜΗΜΑ 6 — APIs & Services (only for SOFTWARE, WEB_ECOMMERCE, IOT_AI)
+    const SERVICES_SECTIONS = new Set(["SOFTWARE", "WEB_ECOMMERCE", "IOT_AI"])
+    const services = SERVICES_SECTIONS.has(sectionEnum)
+      ? stripMarkdown(await askDeepSeek([
+          `${intro}`,
+          `Δημιούργησε λίστα ΤΡΙΤΩΝ ΕΦΑΡΜΟΓΩΝ, APIs και ΥΠΗΡΕΣΙΩΝ που χρειάζεται αυτή η εταιρεία για τον τομέα «${label}».`,
+          `Βασίσου στο Next.js ecosystem και τα αιτήματα/προτάσεις που έχουν καταγραφεί.`,
+          `Για ΚΑΘΕ υπηρεσία:`,
+          `[Αρ.] [Όνομα υπηρεσίας / Εφαρμογής]`,
+          `• Πάροχος: [εταιρεία]`,
+          `• Σκοπός: [τι κάνει — 1 πρόταση]`,
+          `• Κόστος: [€X/μήνα ή €X ανά χρήση — να είναι ρεαλιστικά τιμολόγια 2024-2025]`,
+          `• Πλάνο: [Free / Starter / Pro / Enterprise — ποιο αρμόζει]`,
+          ``,
+          `Συμπερίλαβε: hosting, email, πληρωμές, CDN, analytics, monitoring, email marketing, AI APIs, storage, maps, SMS/push κ.α. όπου αρμόζει.`,
+          `Μόνο υπηρεσίες που ΠΡΑΓΜΑΤΙΚΑ χρειάζεται αυτή η εταιρεία — όχι γενικές προτάσεις.`,
+          `Αριθμημένη λίστα, 6-12 υπηρεσίες.`,
+        ].join("\n"), 3000))
       : ""
 
     return {
@@ -367,6 +395,7 @@ export async function POST(req: Request, { params }: Params) {
       proposals,
       ideas,
       estimation,
+      services,
     }
   }
 
@@ -389,6 +418,7 @@ export async function POST(req: Request, { params }: Params) {
         proposals: "",
         ideas: "",
         estimation: "",
+        services: "",
       })
     }
   }

@@ -22,6 +22,7 @@ interface SectionAnalysis {
   proposals: string
   ideas: string
   estimation: string
+  services: string
 }
 
 interface ProposalItem {
@@ -453,6 +454,105 @@ function EstimationBlock({ value, onChange }: { value: string; onChange: (v: str
   )
 }
 
+// ─── IdeaCardsBlock ───────────────────────────────────────────────────────────
+
+function IdeaCardsBlock({
+  ideas, accent, onDelete,
+}: { ideas: string[]; accent: string; onDelete: (idx: number) => void }) {
+  if (!ideas.length) return null
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2 mb-3 pb-1.5" style={{ borderBottom: `1px solid ${accent}25` }}>
+        <Lightbulb className="size-3.5 shrink-0" style={{ color: accent }} strokeWidth={1.5} />
+        <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: accent }}>
+          Ιδέες για Αναβάθμιση
+        </span>
+        <span className="text-[10px]" style={{ color: "#9CA3AF" }}>δεν συμπεριλαμβάνονται στην πρόταση</span>
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {ideas.map((idea, i) => (
+          <div key={i}
+            className="relative flex items-start gap-2.5 rounded-xl border px-3 py-2.5 group"
+            style={{ borderColor: `${accent}30`, background: `${accent}05` }}>
+            <Lightbulb className="size-3.5 shrink-0 mt-0.5" style={{ color: accent }} strokeWidth={1.5} />
+            <p className="flex-1 text-[12px] leading-relaxed" style={{ color: "#374151" }}>{idea}</p>
+            <button
+              type="button"
+              onClick={() => onDelete(i)}
+              className="shrink-0 size-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50"
+              style={{ color: "#BE123C" }}
+              title="Αφαίρεση ιδέας"
+            >
+              <X className="size-3" strokeWidth={2} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── ServicesBlock ────────────────────────────────────────────────────────────
+
+function ServicesBlock({ value, accent }: { value: string; accent: string }) {
+  if (!value?.trim()) return null
+
+  // Parse into service entries (each starts with a number like "1." or "1)")
+  const lines = value.split("\n")
+  const entries: { name: string; details: string[] }[] = []
+  let current: { name: string; details: string[] } | null = null
+
+  for (const line of lines) {
+    const t = line.trim()
+    if (!t) continue
+    const numMatch = t.match(/^(\d+[\.\)])\s*(.*)/)
+    if (numMatch) {
+      if (current) entries.push(current)
+      current = { name: numMatch[2].trim(), details: [] }
+    } else if (current && (t.startsWith("•") || t.startsWith("-"))) {
+      current.details.push(t.slice(1).trim())
+    } else if (current) {
+      current.details.push(t)
+    }
+  }
+  if (current) entries.push(current)
+
+  if (!entries.length) return null
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2 mb-3 pb-1.5" style={{ borderBottom: `1px solid ${accent}25` }}>
+        <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: accent }}>
+          APIs & Υπηρεσίες Τρίτων
+        </span>
+        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: `${accent}12`, color: accent }}>
+          {entries.length} υπηρεσίες
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {entries.map((entry, i) => (
+          <div key={i} className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${accent}22`, background: `${accent}04` }}>
+            <p className="text-[13px] font-semibold mb-1.5" style={{ color: "#1F2937" }}>{entry.name}</p>
+            <div className="space-y-0.5">
+              {entry.details.map((d, di) => {
+                const [label, ...rest] = d.split(":")
+                const val = rest.join(":").trim()
+                if (val) return (
+                  <div key={di} className="flex gap-1.5 text-[11px]">
+                    <span className="font-semibold shrink-0" style={{ color: accent }}>{label.trim()}:</span>
+                    <span style={{ color: "#6B7280" }}>{val}</span>
+                  </div>
+                )
+                return <p key={di} className="text-[11px]" style={{ color: "#6B7280" }}>{d}</p>
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── ProposalItemsEditor ──────────────────────────────────────────────────────
 
 function ProposalItemsEditor({
@@ -592,10 +692,11 @@ function ProposalItemsEditor({
 
 function SectionCard({
   sectionKey, state, analysis, error, included,
-  proposalItems,
+  proposalItems, ideas,
   onGenerate, onToggleInclude,
   onUpdateField,
   onToggleItem, onEditItem, onAddItem, onRemoveItem,
+  onDeleteIdea, onRemoveSection,
 }: {
   sectionKey: string
   state: SectionState
@@ -603,6 +704,7 @@ function SectionCard({
   error: string
   included: boolean
   proposalItems: ProposalItem[]
+  ideas: string[]
   onGenerate: (key: string) => void
   onToggleInclude: (key: string) => void
   onUpdateField: (key: string, field: keyof SectionAnalysis, value: string) => void
@@ -610,6 +712,8 @@ function SectionCard({
   onEditItem: (key: string, id: string, text: string) => void
   onAddItem: (key: string, text: string) => void
   onRemoveItem: (key: string, id: string) => void
+  onDeleteIdea: (key: string, idx: number) => void
+  onRemoveSection: (key: string) => void
 }) {
   const [open, setOpen] = useState(true)
   const meta = SECTION_META[sectionKey] ?? { icon: <Sparkles className="size-4" strokeWidth={1.5} />, label: sectionKey, accent: "#0078D4", accentBg: "rgba(0,120,212,0.10)" }
@@ -631,11 +735,18 @@ function SectionCard({
         <span className="flex-1 text-[14px] font-semibold text-[#1F2937]">{meta.label}</span>
 
         {state === "idle" && (
-          <button type="button" onClick={() => onGenerate(sectionKey)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
-            style={{ background: meta.accentBg, color: meta.accent }}>
-            <PlayCircle className="size-3.5" strokeWidth={1.5} /> Ανάλυση
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => onGenerate(sectionKey)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+              style={{ background: meta.accentBg, color: meta.accent }}>
+              <PlayCircle className="size-3.5" strokeWidth={1.5} /> Ανάλυση
+            </button>
+            <button type="button" onClick={() => onRemoveSection(sectionKey)} title="Αφαίρεση ενότητας"
+              className="size-7 rounded-lg flex items-center justify-center hover:bg-rose-50 transition-colors"
+              style={{ color: "#BE123C" }}>
+              <X className="size-3.5" strokeWidth={2} />
+            </button>
+          </div>
         )}
         {state === "loading" && (
           <span className="flex items-center gap-1.5 text-[12px]" style={{ color: meta.accent }}>
@@ -643,11 +754,18 @@ function SectionCard({
           </span>
         )}
         {state === "error" && (
-          <button type="button" onClick={() => onGenerate(sectionKey)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
-            style={{ background: "rgba(190,18,60,0.08)", color: "#BE123C" }}>
-            <RefreshCw className="size-3.5" strokeWidth={1.5} /> Επανάληψη
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => onGenerate(sectionKey)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+              style={{ background: "rgba(190,18,60,0.08)", color: "#BE123C" }}>
+              <RefreshCw className="size-3.5" strokeWidth={1.5} /> Επανάληψη
+            </button>
+            <button type="button" onClick={() => onRemoveSection(sectionKey)} title="Αφαίρεση ενότητας"
+              className="size-7 rounded-lg flex items-center justify-center hover:bg-rose-50 transition-colors"
+              style={{ color: "#BE123C" }}>
+              <X className="size-3.5" strokeWidth={2} />
+            </button>
+          </div>
         )}
         {state === "done" && analysis && (
           <div className="flex items-center gap-1.5">
@@ -667,6 +785,11 @@ function SectionCard({
               className="size-7 rounded-lg flex items-center justify-center hover:bg-[#F3F2F1] transition-colors"
               style={{ color: "#9CA3AF" }}>
               {open ? <ChevronUp className="size-4" strokeWidth={1.5} /> : <ChevronDown className="size-4" strokeWidth={1.5} />}
+            </button>
+            <button type="button" onClick={() => onRemoveSection(sectionKey)} title="Αφαίρεση ενότητας"
+              className="size-7 rounded-lg flex items-center justify-center hover:bg-rose-50 transition-colors"
+              style={{ color: "#BE123C" }}>
+              <X className="size-3.5" strokeWidth={2} />
             </button>
           </div>
         )}
@@ -706,12 +829,12 @@ function SectionCard({
             onRemove={id => onRemoveItem(sectionKey, id)}
           />
 
-          <EditableTextArea
-            title="Ιδέες για Αναβάθμιση"
-            value={analysis.ideas}
-            onChange={v => onUpdateField(sectionKey, "ideas", v)}
+          <IdeaCardsBlock
+            ideas={ideas}
             accent={meta.accent}
+            onDelete={(idx) => onDeleteIdea(sectionKey, idx)}
           />
+          <ServicesBlock value={analysis.services ?? ""} accent={meta.accent} />
           <EstimationBlock
             value={analysis.estimation}
             onChange={v => onUpdateField(sectionKey, "estimation", v)}
@@ -845,11 +968,13 @@ interface AiAnalysisDialogProps {
 }
 
 export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections, onClose, onProposalCreated }: AiAnalysisDialogProps) {
+  const [activeSections, setActiveSections] = useState<string[]>(sections)
   const [states,   setStates]   = useState<Record<string, SectionState>>(() => Object.fromEntries(sections.map(k => [k, "idle" as SectionState])))
   const [results,  setResults]  = useState<Record<string, SectionAnalysis>>({})
   const [errors,   setErrors]   = useState<Record<string, string>>({})
   const [included, setIncluded] = useState<Record<string, boolean>>(() => Object.fromEntries(sections.map(k => [k, true])))
   const [proposalItems, setProposalItems] = useState<Record<string, ProposalItem[]>>({})
+  const [sectionIdeas, setSectionIdeas] = useState<Record<string, string[]>>({})
   const [requirementsBySection,       setRequirementsBySection]       = useState<Record<string, SectionRequirement[]>>({})
   const [companySuggestionsBySection, setCompanySuggestionsBySection] = useState<Record<string, SectionRequirement[]>>({})
   // Company suggestions keyed by section KEY (e.g. "hardware_network") for the panel
@@ -943,6 +1068,10 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
         custom: false,
       }))
       setProposalItems(p => ({ ...p, [sectionKey]: items }))
+      setSectionIdeas(prev => ({
+        ...prev,
+        [sectionKey]: parseItems(data.analyses[0]?.ideas ?? ""),
+      }))
       setStates(s => ({ ...s, [sectionKey]: "done" }))
       if (data.requirementsBySection) {
         setRequirementsBySection(prev => ({ ...prev, ...data.requirementsBySection }))
@@ -957,7 +1086,7 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
   }, [surveyId])
 
   async function generateAll() {
-    for (const key of sections) {
+    for (const key of activeSections) {
       if (states[key] !== "loading") await generate(key)
     }
   }
@@ -982,8 +1111,25 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
     setProposalItems(p => ({ ...p, [key]: p[key].filter(i => i.id !== id) }))
   }
 
+  function deleteIdea(sectionKey: string, idx: number) {
+    setSectionIdeas(prev => ({
+      ...prev,
+      [sectionKey]: (prev[sectionKey] ?? []).filter((_, i) => i !== idx),
+    }))
+  }
+
+  function removeSection(key: string) {
+    setActiveSections(prev => prev.filter(k => k !== key))
+    setStates(prev => { const n = { ...prev }; delete n[key]; return n })
+    setResults(prev => { const n = { ...prev }; delete n[key]; return n })
+    setErrors(prev => { const n = { ...prev }; delete n[key]; return n })
+    setIncluded(prev => { const n = { ...prev }; delete n[key]; return n })
+    setProposalItems(prev => { const n = { ...prev }; delete n[key]; return n })
+    setSectionIdeas(prev => { const n = { ...prev }; delete n[key]; return n })
+  }
+
   async function saveDocx() {
-    const includedKeys = sections.filter(k => states[k] === "done" && included[k])
+    const includedKeys = activeSections.filter(k => states[k] === "done" && included[k])
     if (!includedKeys.length) return
     setSaving(true)
     try {
@@ -1013,8 +1159,8 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
     }
   }
 
-  const doneCount    = sections.filter(k => states[k] === "done").length
-  const includedDone = sections.filter(k => states[k] === "done" && included[k])
+  const doneCount    = activeSections.filter(k => states[k] === "done").length
+  const includedDone = activeSections.filter(k => states[k] === "done" && included[k])
 
   return (
     <div
@@ -1056,7 +1202,7 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
         <div className="flex-1 overflow-y-auto p-5 space-y-3" style={{ background: "#F3F2F1" }}>
           <CompanySuggestionsPanel
             surveyId={surveyId}
-            sections={sections}
+            sections={activeSections}
             suggestions={companySuggestions}
             onAdd={addCompanySuggestion}
             onDelete={deleteCompanySuggestion}
@@ -1070,7 +1216,7 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
               </span>
             </div>
           )}
-          {sections.map(key => (
+          {activeSections.map(key => (
             <SectionCard
               key={key}
               sectionKey={key}
@@ -1079,6 +1225,7 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
               error={errors[key] ?? ""}
               included={included[key] ?? true}
               proposalItems={proposalItems[key] ?? []}
+              ideas={sectionIdeas[key] ?? []}
               onGenerate={generate}
               onToggleInclude={toggleInclude}
               onUpdateField={updateField}
@@ -1086,6 +1233,8 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
               onEditItem={editItem}
               onAddItem={addItem}
               onRemoveItem={removeItem}
+              onDeleteIdea={deleteIdea}
+              onRemoveSection={removeSection}
             />
           ))}
         </div>
@@ -1095,7 +1244,7 @@ export function AiAnalysisDialog({ surveyId, surveyName, customerName, sections,
           <div className="shrink-0 px-5 py-4 space-y-3" style={{ background: "#ffffff", borderTop: "1px solid #E1DFDD" }}>
             <div className="flex items-center justify-between">
               <span className="text-[12px]" style={{ color: "#9CA3AF" }}>
-                {doneCount}/{sections.length} ενότητες αναλύθηκαν
+                {doneCount}/{activeSections.length} ενότητες αναλύθηκαν
                 {includedDone.length < doneCount && ` · ${includedDone.length} συμπεριλαμβάνονται`}
               </span>
               <div className="flex items-center gap-2">

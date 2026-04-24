@@ -4,29 +4,33 @@ import { notifyProposalAssignees } from "@/lib/proposal-notify"
 
 type Params = { params: Promise<{ id: string }> }
 
-// ─── Sales expert system prompt ───────────────────────────────────────────────
+// ─── Master system prompt ─────────────────────────────────────────────────────
 
-const SALES_SYSTEM = `
-Είσαι ανώτερος σύμβουλος τεχνολογικών λύσεων με 25+ χρόνια εμπειρία, εξειδικευμένος στη σύνταξη εμπορικών προτάσεων για ελληνικές επιχειρήσεις. Κάθε κείμενο που παράγεις αποτελεί επίσημο επαγγελματικό έγγραφο.
+const PROPOSAL_SYSTEM = `
+Είσαι ανώτερος σύμβουλος τεχνολογικών λύσεων με 25+ χρόνια εμπειρία. Συντάσσεις επαγγελματικές εμπορικές προτάσεις για ελληνικές επιχειρήσεις. Κάθε κείμενο που παράγεις είναι επίσημο έγγραφο που διαβάζει ο επιχειρηματίας — όχι ο τεχνικός.
 
-ΚΑΝΟΝΕΣ ΓΛΩΣΣΑΣ ΚΑΙ ΥΦΟΥΣ:
-1. Επίσημο, επαγγελματικό ύφος — χωρίς προσωπικές εκφράσεις, χωρίς φιλικό τόνο.
-2. Αναφέρσου στην εταιρεία-πελάτη ως «η εταιρεία» — ΠΟΤΕ «σας», «σου», «η επιχείρησή σας». Η επωνυμία μόνο μία φορά στην αρχή κάθε ενότητας αν χρειάζεται.
-3. Τριτοπρόσωπη αναφορά: «η εταιρεία αντιμετωπίζει», «η λύση θα επιτρέψει στην εταιρεία», «η υλοποίηση θα αποφέρει».
-4. Τεχνικά ακρωνύμια (ERP, CRM, GDPR, SEO, IoT, API, UPS, Wi-Fi, NIS2, ISO) γράφονται ως έχουν. Τα υπόλοιπα στα ελληνικά.
-5. Δώσε έμφαση στην επιχειρηματική αξία και τον ποσοτικοποιημένο αντίκτυπο — ROI, εξοικονόμηση χρόνου, μείωση κινδύνου.
-6. Γλώσσα: σαφής, δομημένη, αξιόπιστη. Αποφεύγε επιθετικές εκφράσεις, υπερβολικές υποσχέσεις και άδεια επίθετα.
-7. Μην ξεκινάς ποτέ με «Ως», «Στο πλαίσιο» ή «Σε σχέση με». Ξεκίνα με ουσία.
-8. ΑΠΑΓΟΡΕΥΕΤΑΙ η επανάληψη: κάθε ενότητα πρέπει να προσφέρει νέο περιεχόμενο — χωρίς ανακύκλωση πληροφοριών από άλλα μέρη.
-9. Ο πελάτης πρέπει να διαβάσει και να κατανοεί πλήρως χωρίς τεχνικές γνώσεις — εξηγείς κάθε τεχνική επιλογή με επιχειρηματικούς όρους.
+ΚΑΝΟΝΕΣ ΓΛΩΣΣΑΣ:
+1. Αναφέρσου στον πελάτη ΠΑΝΤΑ ως «η εταιρία» — ποτέ «σας», «σου», «η επιχείρησή σας», ποτέ το πλήρες όνομα.
+2. Τριτοπρόσωπη αφήγηση: «η εταιρία αντιμετωπίζει», «η λύση επιτρέπει στην εταιρία», «η υλοποίηση αποφέρει».
+3. Επίσημο, αξιόπιστο ύφος — χωρίς φιλικό τόνο αλλά και χωρίς γραφειοκρατική ψυχρότητα.
+4. Τεχνικά ακρωνύμια (ERP, CRM, GDPR, SEO, IoT, API, UPS, Wi-Fi, NIS2, ISO) γράφονται ως έχουν.
+5. Κάθε τεχνική επιλογή εξηγείται ΑΜΕΣΩΣ με επιχειρηματικούς όρους — ο επιχειρηματίας πρέπει να καταλαβαίνει χωρίς τεχνικές γνώσεις.
+6. Γλώσσα: σαφής, πειστική, συνεκτική. Χωρίς υπερβολές, χωρίς άδεια επίθετα.
+7. Μην ξεκινάς ποτέ πρόταση με «Ως», «Στο πλαίσιο», «Σε ανταπόκριση», «Σε σχέση με».
+8. ΑΠΑΓΟΡΕΥΜΕΝΕΣ φράσεις: «Σε ανταπόκριση της απαίτησής σας», «headless frontend», «middleware layer», «API routes», «server-side rendering» — αντικατέστησέ τες με επιχειρηματικές περιγραφές.
 
-ΠΡΟΤΙΜΗΤΕΟ ΤΕΧΝΟΛΟΓΙΚΟ ΠΛΑΙΣΙΟ — εφάρμοζε σε ΟΛΕΣ τις web/software προτάσεις:
-10. Για ΟΠΟΙΑΔΗΠΟΤΕ web εφαρμογή, eshop, portal ή custom λογισμικό: η προτεινόμενη λύση βασίζεται στο Next.js 16+ (App Router, Server Components) με Tailwind CSS, Prisma, NextAuth v5.
-11. E-commerce: Medusa.js headless + Next.js storefront, ή WooCommerce headless. Ποτέ monolithic WordPress εκτός αν ζητηθεί ρητά.
-12. Πληρωμές: Stripe (διεθνές) + Viva Wallet (ελληνική αγορά). Email: Resend + React Email. Hosting: Vercel ή VPS Docker.
-13. AI features: Vercel AI SDK με Claude (Anthropic) — native streaming στο Next.js. Analytics: Plausible (GDPR-compliant).
-14. ERP/CRM ενοποίηση: Next.js API routes ως middleware layer — ασφαλής, scalable, χωρίς vendor lock-in.
-15. Κάθε τεχνική επιλογή εξηγείται με επιχειρηματικά πλεονεκτήματα, όχι μόνο τεχνική περιγραφή.
+ΤΕΧΝΟΛΟΓΙΚΟ ΠΛΑΙΣΙΟ (για web/software λύσεις):
+9. Το βασικό framework είναι Next.js 16+ — αλλά το ονομάζεις «σύγχρονη web πλατφόρμα» ή «ψηφιακή πλατφόρμα» όταν απευθύνεσαι στον επιχειρηματία. Η τεχνική ονομασία αναφέρεται μόνο μία φορά με εξήγηση.
+10. E-commerce: ολοκληρωμένο ηλεκτρονικό κατάστημα με ανεξάρτητα συστήματα καταλόγου, παραγγελιών και πληρωμών.
+11. Πληρωμές: Stripe + Viva Wallet. Email αποστολής: Resend. Analytics: Plausible.
+12. ERP/CRM σύνδεση: ενοποίηση συστημάτων μέσω ασφαλούς API σύνδεσης.
+13. Hosting: Vercel ή αφιερωμένος διακομιστής με Docker.
+
+ΑΦΗΓΗΜΑΤΙΚΗ ΔΟΜΗ:
+14. Η πρόταση είναι ΙΣΤΟΡΙΑ — αφηγείσαι τη μεταμόρφωση της εταιρίας από την τρέχουσα κατάσταση στη νέα πραγματικότητα.
+15. ΔΕΝ απαντάς σε αιτήματα ένα-ένα. Ενσωματώνεις τα πάντα σε ένα συνεκτικό κείμενο.
+16. Κάθε παράγραφος συνδέεται με την επόμενη — δεν υπάρχουν νησίδες απόψεων.
+17. Ο αναγνώστης πρέπει να νιώθει ότι κατανοείς ακριβώς τι χρειάζεται και έχεις σχεδιάσει ΜΙΑ ολοκληρωμένη λύση γι' αυτόν.
 `.trim()
 
 const SECTION_LABELS: Record<string, string> = {
@@ -35,6 +39,14 @@ const SECTION_LABELS: Record<string, string> = {
   WEB_ECOMMERCE:    "Διαδίκτυο & E-commerce",
   COMPLIANCE:       "Συμμόρφωση",
   IOT_AI:           "IoT & Τεχνητή Νοημοσύνη",
+}
+
+const SECTION_ENUM: Record<string, string> = {
+  hardware_network: "HARDWARE_NETWORK",
+  software:         "SOFTWARE",
+  web_ecommerce:    "WEB_ECOMMERCE",
+  compliance:       "COMPLIANCE",
+  iot_ai:           "IOT_AI",
 }
 
 interface SectionAnalysis {
@@ -55,12 +67,20 @@ interface SectionRequirement {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*{1,3}([^*\n]+)\*{1,3}/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""))
+    .trim()
+}
+
 async function callDeepSeek(
   apiKey: string,
   system: string,
   user: string,
   maxTokens = 1000,
-  temperature = 0.85,
+  temperature = 0.82,
 ): Promise<string> {
   const res = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
@@ -130,57 +150,24 @@ export async function POST(req: Request, { params }: Params) {
     if (!conn) return NextResponse.json({ error: "No active DeepSeek connection" }, { status: 503 })
     const apiKey = (conn.credentials as Record<string, string>).apiKey
 
-    // ── 3. Executive summary ────────────────────────────────────────────────
-    // High-level overview only — NOT repeating individual proposals.
-    // Each section contributes only its situation + key gaps.
+    // ── 3. Build unified context block (all sections combined) ──────────────
+    // This is the master input that every generation call draws from.
 
-    const sectionSummaries = includedSections.map(key => {
-      const a = results[key]
-      if (!a) return ""
-      const enumKey = SECTION_ENUM[key]
-      return [
-        `[${(SECTION_LABELS[enumKey ?? ""] ?? a.label).toUpperCase()}]`,
-        a.currentSituation ? `Κατάσταση: ${a.currentSituation.slice(0, 400)}` : "",
-        a.gaps             ? `Κρίσιμα κενά: ${a.gaps.slice(0, 300)}` : "",
-      ].filter(Boolean).join("\n")
-    }).filter(Boolean).join("\n\n")
+    const hasWebOrSoftware = includedSections.some(k => ["web_ecommerce", "software"].includes(k))
+    const hasEstimations   = includedSections.some(k => results[k]?.estimation?.trim())
 
-    const execSummaryRaw = await callDeepSeek(
-      apiKey,
-      SALES_SYSTEM,
-      [
-        `Εταιρεία-πελάτης: ${customerName}`,
-        ``,
-        `Τεχνική ανάλυση ανά τομέα:`,
-        sectionSummaries,
-        ``,
-        `Συνέταξε ΕΚΤΕΛΕΣΤΙΚΗ ΣΥΝΟΨΗ (400-500 λέξεις) για επίσημη εμπορική πρόταση.`,
-        `Αυτή είναι η ΜΟΝΗ ενότητα που επιτρέπεται να αναφέρει την επωνυμία «${customerName}».`,
-        `Δομή — 7 παράγραφοι, μόνο κείμενο (χωρίς τίτλους ή bullet points):`,
-        `• Παρ. 1-2: Τρέχουσα κατάσταση — ρεαλιστική εικόνα, χωρίς κολακεία`,
-        `• Παρ. 3-4: Βασικές ανάγκες, ευκαιρίες, κίνδυνοι αδράνειας`,
-        `• Παρ. 5-6: Η συνολική λύση — τι αλλάζει, ποια επιχειρηματική αξία`,
-        `• Παρ. 7: Επόμενα βήματα — συγκεκριμένα, χωρίς πίεση`,
-        `ΜΗΝ αναφέρεις μεμονωμένες προτάσεις — μόνο το συνολικό πλαίσιο.`,
-      ].join("\n"),
-      4000,
-    )
-
-    // ── 4. Unified solution per section ────────────────────────────────────
-    // Synthesises ALL inputs (requirements + company suggestions + AI proposals)
-    // into ONE coherent solution description per section.
-    // NOT a list of items — a narrative that covers everything holistically.
-
-    const SECTION_ENUM: Record<string, string> = {
-      hardware_network: "HARDWARE_NETWORK",
-      software:         "SOFTWARE",
-      web_ecommerce:    "WEB_ECOMMERCE",
-      compliance:       "COMPLIANCE",
-      iot_ai:           "IOT_AI",
-    }
-
-    const solutionSections: Array<{ label: string; html: string }> = []
-    const responses: { requirementId: number; response: string }[] = []
+    // All customer requirements across all sections (flat list, labelled by section)
+    const allRequirements: string[] = []
+    // All company suggestions across all sections
+    const allCompanySuggestions: string[] = []
+    // All selected AI proposals across all sections
+    const allAiProposals: string[] = []
+    // Full gap analysis per section (for context)
+    const sectionContextBlocks: string[] = []
+    // Estimation data
+    const estimationBlocks: string[] = []
+    // All requirement objects for per-req responses
+    const allRequirementObjects: Array<{ id: number; title: string; description: string | null; sectionLabel: string }> = []
 
     for (const key of includedSections) {
       const enumKey = SECTION_ENUM[key]
@@ -189,158 +176,173 @@ export async function POST(req: Request, { params }: Params) {
       if (!a) continue
       const sectionLabel = SECTION_LABELS[enumKey] ?? a.label
 
-      const sectionReqs  = requirementsBySection[enumKey] ?? []
-      const compSuggs    = companySuggestionsBySection[enumKey] ?? []
-      const aiItems      = proposalItemsBySection[enumKey] ?? []
+      const reqs  = requirementsBySection[enumKey] ?? []
+      const comp  = companySuggestionsBySection[enumKey] ?? []
+      const ai    = proposalItemsBySection[enumKey] ?? []
 
-      // Build all inputs for this section
-      const isWebOrSoftware = enumKey === "WEB_ECOMMERCE" || enumKey === "SOFTWARE"
-
-      const inputBlocks: string[] = []
-      if (sectionReqs.length) {
-        inputBlocks.push(
-          `[Α] ΑΙΤΗΜΑΤΑ ΠΕΛΑΤΗ — αυτά πρέπει να απαντηθούν ρητά στη λύση:\n` +
-          sectionReqs.map((r, i) => `${i + 1}. ${r.title}${r.description ? ` — ${r.description}` : ""}`).join("\n")
+      if (reqs.length) {
+        allRequirements.push(
+          `[${sectionLabel}]: ` +
+          reqs.map(r => `"${r.title}"${r.description ? ` (${r.description})` : ""}`).join(" · ")
+        )
+        reqs.forEach(r => allRequirementObjects.push({ ...r, sectionLabel }))
+      }
+      if (comp.length) {
+        allCompanySuggestions.push(
+          `[${sectionLabel}]: ` +
+          comp.map(r => `${r.title}${r.description ? ` — ${r.description}` : ""}`).join(" · ")
         )
       }
-      if (compSuggs.length) {
-        inputBlocks.push(
-          `[Β] ΠΡΟΤΑΣΕΙΣ ΕΤΑΙΡΕΙΑΣ ΜΑΣ — τεχνικές εκτιμήσεις που ενσωματώνουμε στη λύση:\n` +
-          compSuggs.map((r, i) => `${i + 1}. ${r.title}${r.description ? ` — ${r.description}` : ""}`).join("\n")
-        )
-      }
-      if (aiItems.length) {
-        inputBlocks.push(
-          `[Γ] ΕΠΙΠΛΕΟΝ AI ΑΝΑΛΥΣΗ — εντοπισμένες ευκαιρίες από τεχνική ανάλυση:\n` +
-          aiItems.map((t, i) => `${i + 1}. ${t.slice(0, 200)}`).join("\n")
+      if (ai.length) {
+        allAiProposals.push(
+          `[${sectionLabel}]: ` + ai.slice(0, 5).map(t => t.slice(0, 150)).join(" · ")
         )
       }
 
-      const solutionPrompt = [
-        `Τομέας: ${sectionLabel}`,
-        ``,
-        `Τρέχουσα κατάσταση: ${a.currentSituation.slice(0, 500)}`,
-        ``,
-        `Εντοπισμένα κενά: ${a.gaps.slice(0, 400)}`,
-        ``,
-        ...inputBlocks,
-        ``,
-        `Συνέταξε ΟΛΟΚΛΗΡΩΜΕΝΗ ΠΑΡΟΥΣΙΑΣΗ ΛΥΣΗΣ (350-450 λέξεις) για τον τομέα «${sectionLabel}».`,
-        `ΥΠΟΧΡΕΩΤΙΚΟ: Κάθε αίτημα πελάτη [Α] πρέπει να απαντηθεί ρητά — ο πελάτης πρέπει να αναγνωρίζει ότι ακούστηκε.`,
-        `ΥΠΟΧΡΕΩΤΙΚΟ: Οι προτάσεις της εταιρείας μας [Β] ενσωματώνονται ως συμπληρωματική αξία που προσθέτουμε εμείς.`,
-        `Τα ευρήματα AI ανάλυσης [Γ] χρησιμοποιούνται ως υπόβαθρο — δεν αναφέρονται χωριστά.`,
-        isWebOrSoftware ? `ΤΕΧΝΟΛΟΓΙΑ: Η λύση βασίζεται στο Next.js 16+ ecosystem. Ανέφερε συγκεκριμένα εργαλεία (Next.js, Tailwind, Prisma, Stripe/Viva Wallet, Vercel κ.λπ.) και εξήγησε ΓΙΑΤΙ αυτή η επιλογή ωφελεί την εταιρεία.` : ``,
-        `Μην κάνεις λίστα αιτημάτων — γράψε τη λύση ολιστικά ως ενιαίο πλαίσιο που καλύπτει τα πάντα.`,
-        `Εξήγησε ΓΙΑΤΙ κάθε επιλογή γίνεται — με επιχειρηματικούς όρους, όχι μόνο τεχνικούς.`,
-        `Χρησιμοποίησε «η εταιρεία» — ΠΟΤΕ «σας». Μόνο κείμενο παραγράφων, χωρίς bullet points.`,
-      ].filter(Boolean).join("\n")
+      sectionContextBlocks.push([
+        `=== ${sectionLabel} ===`,
+        a.currentSituation ? `Κατάσταση: ${a.currentSituation.slice(0, 350)}` : "",
+        a.gaps ? `Κενά: ${a.gaps.slice(0, 350)}` : "",
+        a.proposals ? `Τεχνικές προτάσεις: ${a.proposals.slice(0, 400)}` : "",
+      ].filter(Boolean).join("\n"))
 
-      try {
-        const html = textToHtml(await callDeepSeek(apiKey, SALES_SYSTEM, solutionPrompt, 3500))
-        solutionSections.push({ label: sectionLabel, html })
-      } catch {
-        solutionSections.push({ label: sectionLabel, html: textToHtml(a.proposals) })
-      }
-
-      // Per-requirement responses for DB traceability (short, no duplication)
-      for (const req of sectionReqs) {
-        try {
-          const shortResp = await callDeepSeek(apiKey, SALES_SYSTEM, [
-            `Τομέας: ${sectionLabel}`,
-            `Αίτημα: "${req.title}"${req.description ? `\nΛεπτομέρειες: ${req.description}` : ""}`,
-            ``,
-            `Σε 2-3 προτάσεις: επιβεβαίωσε ότι το αίτημα καλύπτεται στη λύση μας και πώς.`,
-            `Χρησιμοποίησε «η εταιρεία» — ΠΟΤΕ «σας». Χωρίς επανάληψη πληροφοριών από άλλες ενότητες.`,
-          ].join("\n"), 600)
-          responses.push({ requirementId: req.id, response: textToHtml(shortResp) })
-        } catch {
-          responses.push({ requirementId: req.id, response: "" })
-        }
+      if (a.estimation?.trim()) {
+        estimationBlocks.push(`[${sectionLabel}]: ${a.estimation.slice(0, 600)}`)
       }
     }
 
-    // ── 5. Unified project plan ─────────────────────────────────────────────
-    // Synthesises ALL sections into ONE project — start to finish.
-    // This is the core deliverable that lets the customer understand the full journey.
+    const masterContext = [
+      `=== ΣΤΟΙΧΕΙΑ ΕΤΑΙΡΙΑΣ ===`,
+      `Επωνυμία (χρησιμοποίησε ΜΟΝΟ στην εισαγωγή, μετά πάντα «η εταιρία»): ${customerName}`,
+      ``,
+      `=== ΤΡΕΧΟΥΣΑ ΚΑΤΑΣΤΑΣΗ & ΚΕΝΑ ===`,
+      sectionContextBlocks.join("\n\n"),
+      ``,
+      `=== ΑΙΤΗΜΑΤΑ ΠΕΛΑΤΗ (όλα πρέπει να καλύπτονται στη λύση) ===`,
+      allRequirements.length ? allRequirements.join("\n") : "(Δεν έχουν καταχωρηθεί ρητά αιτήματα)",
+      ``,
+      `=== ΤΕΧΝΙΚΕΣ ΠΡΟΤΑΣΕΙΣ ΕΤΑΙΡΙΑΣ ΜΑΣ ===`,
+      allCompanySuggestions.length ? allCompanySuggestions.join("\n") : "(Δεν υπάρχουν)",
+      ``,
+      `=== ΕΠΙΠΛΕΟΝ ΑΝΑΛΥΣΗ ===`,
+      allAiProposals.length ? allAiProposals.join("\n") : "(Δεν υπάρχουν)",
+    ].join("\n")
+
+    // ── 4. Executive summary ────────────────────────────────────────────────
+    // 5-6 paragraphs of flowing prose. The ONLY place with the customer name.
+
+    const execSummary = stripMarkdown(await callDeepSeek(
+      apiKey,
+      PROPOSAL_SYSTEM,
+      [
+        masterContext,
+        ``,
+        `Συνέταξε ΕΚΤΕΛΕΣΤΙΚΗ ΣΥΝΟΨΗ (350-450 λέξεις) — 5-6 παράγραφοι συνεχούς κειμένου χωρίς τίτλους ή bullet points.`,
+        `Αυτή είναι η ΜΟΝΗ ενότητα που αναφέρει το όνομα «${customerName}» — μόνο μία φορά στην πρώτη πρόταση.`,
+        `Αφηγηματική δομή:`,
+        `Παρ. 1: Ποια είναι η εταιρία και πού βρίσκεται σήμερα — ρεαλιστική, χωρίς κολακεία`,
+        `Παρ. 2: Ποιες είναι οι κρίσιμες ανάγκες και τι κόστος έχει η αδράνεια`,
+        `Παρ. 3-4: Η ολοκληρωμένη λύση που προτείνεται — τι αλλάζει, ποια αξία δημιουργεί`,
+        `Παρ. 5: Το χρονοδιάγραμμα και το επόμενο βήμα`,
+        `ΜΗΝ κάνεις λίστα αιτημάτων — γράφε σαν να αφηγείσαι ένα ενιαίο σχέδιο.`,
+      ].join("\n"),
+      4000,
+    ))
+
+    // ── 5. Unified solution — ONE narrative covering ALL sections ───────────
+    // This replaces the per-section loop. One single DeepSeek call synthesises
+    // everything into a coherent, flowing description of the complete solution.
 
     const sectionLabels = includedSections
       .map(k => SECTION_LABELS[SECTION_ENUM[k] ?? ""] ?? k)
       .join(", ")
 
-    const hasWebOrSoftware = includedSections.some(k => ["web_ecommerce", "software"].includes(k))
+    const unifiedSolutionPrompt = [
+      masterContext,
+      ``,
+      `Τομείς που καλύπτει η λύση: ${sectionLabels}`,
+      ``,
+      `Συνέταξε ΠΛΗΡΗ ΠΑΡΟΥΣΙΑΣΗ ΤΗΣ ΛΥΣΗΣ (600-750 λέξεις) ως ΕΝΑ ΕΝΙΑΙΟ κείμενο παραγράφων.`,
+      ``,
+      `ΚΑΝΟΝΕΣ:`,
+      `• Γράψε σαν να περιγράφεις ΜΙΑ ολοκληρωμένη λύση — όχι σειρά ανεξάρτητων αλλαγών`,
+      `• Κάθε αίτημα πελάτη πρέπει να αντικατοπτρίζεται στη λύση, αλλά ΟΧΙ ως "Σε ανταπόκριση του αιτήματος X" — αντίθετα, ενσωμάτωσέ το φυσικά στην αφήγηση`,
+      `• Οι τεχνικές εκτιμήσεις μας ενσωματώνονται ως επαγγελματική προστιθέμενη αξία`,
+      `• Κάθε τεχνολογία αναφέρεται με την επιχειρηματική της αξία — π.χ. "η νέα ψηφιακή πλατφόρμα (Next.js 16+) επιτρέπει φόρτωση σελίδων σε κλάσματα δευτερολέπτου, αυξάνοντας τις μετατροπές"`,
+      hasWebOrSoftware ? `• Η web λύση βασίζεται σε Next.js 16+ — αλλά αποκαλείται "σύγχρονη ψηφιακή πλατφόρμα" στο κείμενο, με μία τεχνική αναφορά σε παρένθεση` : ``,
+      `• Οι τομείς (${sectionLabels}) συνδέονται μεταξύ τους — η λύση στον έναν τομέα ενισχύει τον άλλο`,
+      `• Χρησιμοποίησε «η εταιρία» — ΠΟΤΕ «σας» ή «σου»`,
+      `• Μόνο παράγραφοι — χωρίς bullet points, χωρίς αριθμημένες λίστες, χωρίς τίτλους ενότητας`,
+    ].filter(Boolean).join("\n")
 
-    const allContext = includedSections.map(key => {
-      const a = results[key]
-      const enumKey = SECTION_ENUM[key]
-      if (!a || !enumKey) return ""
-      const reqs  = requirementsBySection[enumKey] ?? []
-      const comp  = companySuggestionsBySection[enumKey] ?? []
-      const ai    = proposalItemsBySection[enumKey] ?? []
-      return [
-        `=== ${SECTION_LABELS[enumKey] ?? a.label} ===`,
-        `Κενά: ${a.gaps.slice(0, 300)}`,
-        `Προτάσεις: ${a.proposals.slice(0, 700)}`,
-        a.estimation ? `Εκτιμήσεις ωρών/κόστους: ${a.estimation.slice(0, 800)}` : "",
-        reqs.length  ? `Αιτήματα: ${reqs.map(r => r.title).join(" | ")}` : "",
-        comp.length  ? `Εσωτερικές προτάσεις: ${comp.map(r => r.title).join(" | ")}` : "",
-        ai.length    ? `Προτεινόμενα: ${ai.slice(0, 6).map(t => t.slice(0, 120)).join(" | ")}` : "",
-      ].filter(Boolean).join("\n")
-    }).filter(Boolean).join("\n\n")
+    const unifiedSolution = stripMarkdown(
+      await callDeepSeek(apiKey, PROPOSAL_SYSTEM, unifiedSolutionPrompt, 7000)
+    )
 
-    const hasEstimations = includedSections.some(k => results[k]?.estimation?.trim())
+    // ── 6. Per-requirement short responses (DB traceability only) ───────────
+    // Short internal notes — NOT shown in proposal. Used for requirement tracking.
+
+    const responses: { requirementId: number; response: string }[] = []
+    for (const req of allRequirementObjects) {
+      try {
+        const shortResp = await callDeepSeek(apiKey, PROPOSAL_SYSTEM, [
+          `Αίτημα: "${req.title}"${req.description ? ` — ${req.description}` : ""}`,
+          `Τομέας: ${req.sectionLabel}`,
+          ``,
+          `Σε 1-2 προτάσεις: πώς καλύπτεται αυτό το αίτημα στην ολοκληρωμένη λύση. Χρησιμοποίησε «η εταιρία».`,
+        ].join("\n"), 500)
+        responses.push({ requirementId: req.id, response: textToHtml(stripMarkdown(shortResp)) })
+      } catch {
+        responses.push({ requirementId: req.id, response: "" })
+      }
+    }
+
+    // ── 7. Unified project plan ─────────────────────────────────────────────
 
     const projectPlanPrompt = [
-      `Εταιρεία-πελάτης: ${customerName}`,
-      `Τομείς έργου: ${sectionLabels}`,
+      masterContext,
+      estimationBlocks.length ? `\n=== ΕΚΤΙΜΗΣΕΙΣ ΩΡΩΝ/ΚΟΣΤΟΥΣ ===\n${estimationBlocks.join("\n")}` : "",
       ``,
-      `Αποτελέσματα ανάλυσης και εκτιμήσεις:`,
-      allContext,
+      `Δημιούργησε ΠΛΗΡΕΣ ΠΛΑΝΟ ΕΚΤΕΛΕΣΗΣ ΕΡΓΟΥ — ΕΝΑ ενιαίο έργο που καλύπτει όλους τους τομείς.`,
+      `Ο επιχειρηματίας πρέπει να καταλαβαίνει ΑΚΡΙΒΩΣ τι θα γίνει, πότε, τι θα παραλάβει, και γιατί.`,
+      hasWebOrSoftware ? `Για web/software αναφέρσου στο Next.js 16+ ως "σύγχρονη ψηφιακή πλατφόρμα" με μία τεχνική αναφορά (Next.js 16+) σε παρένθεση.` : ``,
       ``,
-      `Δημιούργησε ΠΛΗΡΕΣ ΠΛΑΝΟ ΕΚΤΕΛΕΣΗΣ ΕΡΓΟΥ που αντιμετωπίζει ΟΛΑ τα παραπάνω ως ΕΝΑ ΕΝΙΑΙΟ ΕΡΓΟ.`,
-      `Ο πελάτης θα διαβάσει αυτό και πρέπει να κατανοεί ΑΚΡΙΒΩΣ τι θα γίνει, πότε, τι θα παραλάβει, και γιατί.`,
-      `Εξήγησε κάθε απόφαση με επιχειρηματικούς όρους — όχι μόνο τεχνικούς.`,
-      hasWebOrSoftware ? `ΤΕΧΝΟΛΟΓΙΚΟ STACK: Για web/software components χρησιμοποίησε Next.js 16+ (App Router), Tailwind CSS, Prisma ORM, NextAuth v5, Vercel/Docker hosting. Ανέφερε αυτά στη φάση αρχιτεκτονικής και εξήγησε τα πλεονεκτήματά τους για την εταιρεία.` : ``,
-      ``,
-      `Χρησιμοποίησε ΑΚΡΙΒΩΣ αυτή τη δομή (αφαίρεσε ενότητα μόνο αν δεν εφαρμόζεται):`,
+      `Δομή (αφαίρεσε ενότητα μόνο αν δεν εφαρμόζεται):`,
       ``,
       `ΕΝΑΡΞΗ ΕΡΓΟΥ`,
-      `• Kick-off — σύσκεψη εκκίνησης: ορισμός ομάδων, στόχοι, αναλυτικό χρονοδιάγραμμα`,
-      `• Discovery & Analysis: τεκμηρίωση απαιτήσεων, αρχιτεκτονική συστήματος, UX planning`,
-      `• Παραδοτέα: [Τι παράγεται — π.χ. requirements document, wireframes, technical spec]`,
-      `• Διάρκεια: [X] εβδομάδες`,
+      `• Kick-off: ορισμός ομάδων, στόχοι, αναλυτικό χρονοδιάγραμμα — [X] εβδομάδες`,
+      `• Τεκμηρίωση: καταγραφή απαιτήσεων, σχεδιασμός αρχιτεκτονικής, UX/UI σχέδια`,
+      `• Παραδοτέα: [συγκεκριμένα έγγραφα και σχέδια]`,
       ``,
-      `ΦΑΣΗ 1: [Όνομα] ([X] εβδομάδες)`,
-      `• Αντικείμενο: [Τι ακριβώς υλοποιείται — αναφορά σε συγκεκριμένες προτάσεις]`,
-      `• Γιατί αυτή η φάση πρώτη: [Αιτιολόγηση σειράς — εξαρτήσεις, επιχειρηματική λογική]`,
-      `• Παραδοτέα: [Τι παραλαμβάνει η εταιρεία — συγκεκριμένο, δοκιμάσιμο, λειτουργικό]`,
-      `• Milestone: [Συγκεκριμένος ορόσημος — π.χ. "Σύστημα X σε παραγωγή"]`,
+      `ΦΑΣΗ 1: [Όνομα] — [X] εβδομάδες`,
+      `• Αντικείμενο: [τι υλοποιείται — συγκεκριμένα]`,
+      `• Γιατί πρώτα: [αιτιολόγηση — εξαρτήσεις, επιχειρηματική λογική]`,
+      `• Παραδοτέα: [τι παραλαμβάνει η εταιρία — δοκιμάσιμο, λειτουργικό]`,
+      `• Milestone: [ορόσημος — π.χ. "Ιστοτόπος σε παραγωγή"]`,
       `• Ώρες: [X]–[Y] | Κόστος: €[X.XXX]–€[Y.YYY]`,
       ``,
-      `[ΦΑΣΗ 2, ΦΑΣΗ 3 κ.ο.κ. — τόσες φάσεις όσο χρειάζεται, ίδια δομή]`,
+      `[ΦΑΣΗ 2, ΦΑΣΗ 3 κ.ο.κ. — ίδια δομή]`,
       ``,
       `ΟΛΟΚΛΗΡΩΣΗ & ΠΑΡΑΔΟΣΗ`,
-      `• User Acceptance Testing (UAT): κριτήρια αποδοχής, διαδικασία, διάρκεια`,
-      `• Εκπαίδευση: τι καλύπτεται, ποιοι χρήστες, μορφή (on-site / online / documentation)`,
-      `• Go-Live: διαδικασία μετάβασης, παράλληλη λειτουργία αν χρειαστεί, rollback plan`,
+      `• Δοκιμές αποδοχής (UAT): κριτήρια, διαδικασία, διάρκεια`,
+      `• Εκπαίδευση: ποιοι χρήστες, τι καλύπτεται, μορφή`,
+      `• Μετάπτωση σε παραγωγή: βήματα, παράλληλη λειτουργία αν χρειαστεί`,
       `• Υποστήριξη μετά παράδοση: τι καλύπτεται, διάρκεια, SLA`,
       ``,
       hasEstimations ? [
         `ΟΙΚΟΝΟΜΙΚΗ ΕΚΤΙΜΗΣΗ`,
-        `• Σύνολο ωρών: [X]–[Y] ώρες`,
-        `• Κόστος ανάπτυξης (Claude Code, €60-80/ώρα): €[X.XXX]–€[Y.YYY]`,
-        `• Εναλλακτικό κόστος (παραδοσιακή ανάπτυξη): €[X.XXX]–€[Y.YYY]`,
-        `• Εξοικονόμηση με Claude Code: [X]% (~€[Z.ZZZ])`,
+        `• Εκτίμηση ωρών: [X]–[Y] ώρες`,
+        `• Κόστος ανάπτυξης (€60/ώρα): €[X.XXX]–€[Y.YYY]`,
         `• Συνολική διάρκεια έργου: [X] μήνες`,
-        `• Τρόπος τιμολόγησης: [Fixed-price / Φάσεις] — [αιτιολόγησε γιατί αυτός ο τρόπος προστατεύει και τις δύο πλευρές]`,
-        `• Αξία επένδυσης: [Τι αλλάζει επιχειρηματικά — ROI, εξοικονόμηση, ανταγωνιστικό πλεονέκτημα]`,
+        `• Τρόπος τιμολόγησης: [Fixed-price / Φάσεις] — [γιατί αυτός ο τρόπος ωφελεί και τις δύο πλευρές]`,
+        `• Επιχειρηματική αξία επένδυσης: [ROI, εξοικονόμηση, ανταγωνιστικό πλεονέκτημα]`,
         ``,
-        `ΓΙΑΤΙ CLAUDE CODE`,
-        `[Παράγραφος 3-4 προτάσεων: τι είναι το Claude Code, γιατί το χρησιμοποιούμε, τι σημαίνει αυτό για ποιότητα/ταχύτητα/κόστος — με κατανοητή γλώσσα, όχι μόνο τεχνική]`,
+        `ΓΙΑΤΙ AI-ASSISTED ΑΝΑΠΤΥΞΗ`,
+        `[2-3 προτάσεις: τι είναι η AI-assisted ανάπτυξη, πώς επιταχύνει την υλοποίηση, τι σημαίνει για την ποιότητα και το κόστος — κατανοητά, χωρίς τεχνικό jargon]`,
       ].join("\n") : "",
       ``,
-      `ΚΙΝΔΥΝΟΙ ΚΑΙ ΑΝΤΙΜΕΤΩΠΙΣΗ`,
-      `• [Κίνδυνος]: [Πώς το αντιμετωπίζουμε — συγκεκριμένο μέτρο]`,
-      `• [Κίνδυνος]: [...]`,
+      `ΚΙΝΔΥΝΟΙ & ΑΝΤΙΜΕΤΩΠΙΣΗ`,
+      `• [Κίνδυνος]: [Συγκεκριμένο μέτρο αντιμετώπισης]`,
       `• [Κίνδυνος]: [...]`,
       ``,
       `ΕΠΟΜΕΝΑ ΒΗΜΑΤΑ`,
@@ -348,41 +350,30 @@ export async function POST(req: Request, { params }: Params) {
       `• [Βήμα 2]`,
       `• [Βήμα 3]`,
       ``,
-      `ΚΑΝΟΝΕΣ: Χρησιμοποίησε «η εταιρεία» — ΠΟΤΕ «σας». Συγκεκριμένοι αριθμοί, ρεαλιστικά εύρη. Ο μη τεχνικός αναγνώστης πρέπει να κατανοεί τα πάντα.`,
+      `ΚΑΝΟΝΕΣ: Χρησιμοποίησε «η εταιρία» — ΠΟΤΕ «σας». Ρεαλιστικοί αριθμοί. Ο μη τεχνικός αναγνώστης πρέπει να κατανοεί τα πάντα.`,
     ].filter(Boolean).join("\n")
 
-    let unifiedProjectPlan = ""
-    try {
-      unifiedProjectPlan = await callDeepSeek(apiKey, SALES_SYSTEM, projectPlanPrompt, 9000)
-    } catch (e) {
-      console.error("[to-proposal] project plan generation failed:", e)
-    }
+    const unifiedProjectPlan = stripMarkdown(
+      await callDeepSeek(apiKey, PROPOSAL_SYSTEM, projectPlanPrompt, 9000)
+    )
 
-    // ── 6. Build description HTML ───────────────────────────────────────────
+    // ── 8. Build description HTML ───────────────────────────────────────────
 
-    // Executive summary
-    let descriptionHtml = textToHtml(execSummaryRaw)
+    let descriptionHtml = textToHtml(execSummary)
 
-    // Unified solution per section
-    if (solutionSections.length) {
+    if (unifiedSolution?.trim()) {
       descriptionHtml += `<p><strong>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</strong></p>`
-      descriptionHtml += `<p><strong>ΤΕΧΝΙΚΗ ΛΥΣΗ</strong></p>`
-      for (const s of solutionSections) {
-        if (solutionSections.length > 1) {
-          descriptionHtml += `<p><strong>— ${s.label} —</strong></p>`
-        }
-        descriptionHtml += s.html
-      }
+      descriptionHtml += `<p><strong>ΟΛΟΚΛΗΡΩΜΕΝΗ ΛΥΣΗ</strong></p>`
+      descriptionHtml += textToHtml(unifiedSolution)
     }
 
-    // Unified project plan (start → finish with full reasoning)
     if (unifiedProjectPlan?.trim()) {
       descriptionHtml += `<p><strong>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</strong></p>`
       descriptionHtml += `<p><strong>ΠΛΑΝΟ ΕΚΤΕΛΕΣΗΣ ΕΡΓΟΥ & ΟΙΚΟΝΟΜΙΚΗ ΠΡΟΤΑΣΗ</strong></p>`
       descriptionHtml += textToHtml(unifiedProjectPlan)
     }
 
-    // ── 7. Create/update proposal ───────────────────────────────────────────
+    // ── 9. Create/update proposal ───────────────────────────────────────────
 
     const existing = await db.$queryRaw<{ id: bigint; status: string }[]>`
       SELECT id, status FROM SurveyProposal WHERE surveyId = ${surveyId} LIMIT 1
@@ -408,7 +399,6 @@ export async function POST(req: Request, { params }: Params) {
       proposalId = Number(ins[0].id)
     }
 
-    // Upsert per-requirement responses for traceability
     for (const r of responses) {
       if (!r.response) continue
       await db.$executeRaw`
@@ -418,7 +408,6 @@ export async function POST(req: Request, { params }: Params) {
       `
     }
 
-    // Fire-and-forget notification
     if (isNew) {
       notifyProposalAssignees({ surveyId, proposalId, event: { type: "created", proposalTitle: title.trim() } }).catch(console.error)
     } else if (oldStatus && oldStatus !== "DRAFT") {
