@@ -17,6 +17,9 @@
     "db:seed": "npm run db:seed -w softone-admin-dashboard",
     "db:studio": "npm run db:studio -w softone-admin-dashboard"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "devDependencies": {
     "@swc/helpers": "^0.5.21",
     "@types/node": "^22.0.0",
