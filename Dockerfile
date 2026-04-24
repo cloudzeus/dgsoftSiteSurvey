@@ -2,7 +2,6 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 
-# Copy workspace manifests
 COPY package.json package-lock.json* ./
 COPY packages/softone-admin-dashboard/package.json ./packages/softone-admin-dashboard/
 COPY packages/softone-sync/package.json ./packages/softone-sync/
@@ -17,10 +16,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/softone-admin-dashboard/node_modules ./packages/softone-admin-dashboard/node_modules 2>/dev/null || true
 COPY . .
 
-# Generate Prisma client
-RUN cd packages/softone-admin-dashboard && npx prisma generate
+# Guarantee public/ exists so the runner COPY never fails (Next.js projects
+# don't require one, but Docker COPY errors if the source is absent).
+RUN mkdir -p packages/softone-admin-dashboard/public
 
-# Build the Next.js app
+RUN cd packages/softone-admin-dashboard && npx prisma generate
 RUN npm run build -w softone-admin-dashboard
 
 # ── Stage 3: runner ──────────────────────────────────────────────────────────
@@ -33,10 +33,19 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs && \
     adduser  --system --uid 1001 nextjs
 
-# Standalone output includes only what's needed
+# Standalone server output (page rendering + Node modules)
 COPY --from=builder /app/packages/softone-admin-dashboard/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/packages/softone-admin-dashboard/.next/static ./packages/softone-admin-dashboard/.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/packages/softone-admin-dashboard/public ./packages/softone-admin-dashboard/public
+
+# Static assets — standalone output intentionally omits .next/static.
+# Missing this causes Next.js to silently return 404 for all /_next/static/* URLs.
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/packages/softone-admin-dashboard/.next/static \
+     ./packages/softone-admin-dashboard/.next/static
+
+# public/ assets (favicon, robots.txt, etc.) — directory is guaranteed by builder
+COPY --from=builder --chown=nextjs:nodejs \
+     /app/packages/softone-admin-dashboard/public \
+     ./packages/softone-admin-dashboard/public
 
 USER nextjs
 
@@ -44,4 +53,7 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "packages/softone-admin-dashboard/server.js"]
+# Run from inside the package dir so __dirname and process.cwd() agree,
+# which is where Next.js resolves .next/static and public at runtime.
+WORKDIR /app/packages/softone-admin-dashboard
+CMD ["node", "server.js"]
